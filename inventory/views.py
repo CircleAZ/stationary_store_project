@@ -89,3 +89,37 @@ def product_add_view(request):
     }
     # Render the template used for the form (we'll create product_form.html)
     return render(request, 'inventory/product_form.html', context)
+
+def product_edit_view(request, pk):
+    """
+    Handles displaying the form pre-filled with an existing product's data (GET)
+    and processing the submitted form data to update the product (POST).
+    """
+    # Get the specific product object we want to edit, or return 404 if not found
+    product = get_object_or_404(Product, pk=pk)
+
+    if request.method == 'POST':
+        # If the form was submitted, process the data, linking it to the existing product instance
+        form = ProductForm(request.POST, instance=product) # *** Key difference: Pass instance=product ***
+        if form.is_valid():
+            # If the form data is valid, save the changes to the existing product
+            updated_product = form.save()
+            messages.success(request, f"Product '{updated_product.name}' updated successfully!")
+            # Redirect to the product's detail page
+            return redirect('inventory:product_detail', pk=updated_product.pk)
+        else:
+            # If the form is invalid, display errors
+            messages.error(request, "Please correct the errors below.")
+            # The form object (with errors and submitted data) will be passed to the template
+    else:
+        # If it's a GET request, create a form instance pre-populated with the existing product's data
+        form = ProductForm(instance=product) # *** Key difference: Pass instance=product ***
+
+    # Prepare the context for the template (reusing product_form.html)
+    context = {
+        'form': form,
+        'form_title': f'Edit Product: {product.name}', # Dynamic title
+        'product': product # Pass product object for potential use in template (e.g., delete button later)
+    }
+    # Render the *same* template used for adding
+    return render(request, 'inventory/product_form.html', context)

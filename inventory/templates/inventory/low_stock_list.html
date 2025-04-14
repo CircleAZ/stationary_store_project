@@ -30,7 +30,7 @@
               <td class="text-end">{{ product.low_stock_threshold }}</td>
               <td>
                 {# Link to edit product in admin (useful for now) #}
-                <a href="{% url 'admin:inventory_product_change' product.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-sm btn-outline-secondary"> {# Removed target="_blank" #}
                   Edit Stock/Details
                 </a>
                 {# Add quick stock update buttons later? #}

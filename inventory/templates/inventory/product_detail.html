@@ -35,11 +35,13 @@
 
     </div>
     <div class="card-footer">
-       {# Link back to the product list page #}
-       <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary"> « Back to Product List</a>
-       {# Add Edit/Delete buttons here later #}
-       <!-- <a href="#" class="btn btn-primary">Edit</a> -->
-       <!-- <a href="#" class="btn btn-danger">Delete</a> -->
-    </div>
+        <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary"> « Back to Product List</a>
+        {# --- ADD EDIT BUTTON --- #}
+        <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-primary">
+             <i class="fas fa-edit"></i> Edit Product {# Optional: Font Awesome icon #}
+        </a>
+        {# --- END EDIT BUTTON --- #}
+        {# Add Delete button here later #}
+     </div>
   </div>
 {% endblock %}
