@@ -14,11 +14,11 @@
             {# --- CHECK FOR THIS TAG --- #}
             {% csrf_token %}
 
-            {# Your form fields rendering (e.g., {% crispy form %} or manual loop) #}
+            {% comment %} {# Your form fields rendering (e.g., {% crispy form %} or manual loop) #} {% endcomment %}
             {% crispy form %} {# Assuming Crispy Forms #}
 
             <div class="mt-4">
-              {# --- CHECK THIS BUTTON --- #}
+              {% comment %} {# --- CHECK THIS BUTTON --- #} {% endcomment %}
               <button type="submit" class="btn btn-success">Save Product</button>
               <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary">Cancel</a>
             </div>
