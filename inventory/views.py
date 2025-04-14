@@ -1,0 +1,91 @@
+from django.shortcuts import render, get_object_or_404, redirect # <-- Add redirect
+from .models import Product, Category
+from .forms import ProductForm # <-- Import the form
+from django.db.models import F
+from django.contrib import messages # <-- Import messages framework
+
+# Modified product_list_view
+def product_list_view(request, category_slug=None): # Add category_slug=None as optional argument
+    """
+    Fetches and displays products.
+    If category_slug is provided, filters products by that category.
+    Also fetches all categories for displaying navigation/filtering links.
+    """
+    categories = Category.objects.all() # Get all categories for navigation
+    products = Product.objects.all() # Start with all products (add .filter(available=True) later)
+    current_category = None # Initialize current_category
+
+    if category_slug:
+        # If a slug is provided, get the category object
+        current_category = get_object_or_404(Category, slug=category_slug)
+        # Filter the products to only include those in the current category
+        products = products.filter(category=current_category)
+
+    # Always order products by name after filtering (or not)
+    products = products.order_by('name')
+
+    context = {
+        'products': products,           # The list of products (filtered or all)
+        'categories': categories,       # All categories for navigation/display
+        'current_category': current_category, # The specific category being viewed (or None)
+    }
+    return render(request, 'inventory/product_list.html', context)
+
+# Existing product_detail_view function (no changes needed here)
+def product_detail_view(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    context = {
+        'product': product,
+    }
+    return render(request, 'inventory/product_detail.html', context)
+
+
+
+# ... existing views ...
+
+# --- NEW Low Stock View ---
+def low_stock_list_view(request):
+    """
+    Fetches and displays products where stock quantity is less than or equal
+    to their low_stock_threshold.
+    """
+    # Filter products using F expression to compare two fields
+    low_stock_products = Product.objects.filter(
+        stock_quantity__lte=F('low_stock_threshold') # stock_quantity <= low_stock_threshold
+    ).order_by('stock_quantity') # Order by quantity, lowest first
+
+    context = {
+        'low_stock_products': low_stock_products,
+    }
+    return render(request, 'inventory/low_stock_list.html', context)
+
+def product_add_view(request):
+    """
+    Handles displaying the form to add a new product (GET)
+    and processing the submitted form data (POST).
+    """
+    if request.method == 'POST':
+        # If the form was submitted, process the data
+        form = ProductForm(request.POST) # Bind data from the request to the form
+        if form.is_valid():
+            # If the form data is valid, save the new product to the database
+            new_product = form.save()
+            # Add a success message (optional)
+            messages.success(request, f"Product '{new_product.name}' added successfully!")
+            # Redirect to the new product's detail page
+            return redirect('inventory:product_detail', pk=new_product.pk)
+        else:
+            # If the form is invalid, validation errors will be in form.errors
+            # The form object (now containing errors) will be passed to the template below
+             messages.error(request, "Please correct the errors below.") # Optional error message
+    else:
+        # If it's a GET request, display a blank form
+        form = ProductForm()
+
+    # Prepare the context for the template
+    context = {
+        'form': form,
+        'form_title': 'Add New Product' # Pass a title for the template
+    }
+    # Render the template used for the form (we'll create product_form.html)
+    return render(request, 'inventory/product_form.html', context)

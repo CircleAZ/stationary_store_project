@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Low Stock Items{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4">Low Stock Items</h1>
+
+  {% if low_stock_products %}
+    <div class="table-responsive"> {# Make table scroll horizontally on small screens #}
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th scope="col">Product Name</th>
+            <th scope="col">Category</th>
+            <th scope="col">Manufacturer</th>
+            <th scope="col" class="text-end">Current Stock</th> {# text-end aligns numbers #}
+            <th scope="col" class="text-end">Low Stock Threshold</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in low_stock_products %}
+            <tr class="{% if product.stock_quantity <= 0 %}table-danger{% elif product.stock_quantity <= product.low_stock_threshold %}table-warning{% endif %}"> {# Highlight zero or low stock #}
+              <td>
+                <a href="{% url 'inventory:product_detail' pk=product.pk %}">{{ product.name }}</a>
+              </td>
+              <td>{{ product.category.name|default:"N/A" }}</td> {# Use default filter if no category #}
+              <td>{{ product.manufacturer|default:"N/A" }}</td>
+              <td class="text-end">{{ product.stock_quantity }}</td>
+              <td class="text-end">{{ product.low_stock_threshold }}</td>
+              <td>
+                {# Link to edit product in admin (useful for now) #}
+                <a href="{% url 'admin:inventory_product_change' product.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                  Edit Stock/Details
+                </a>
+                {# Add quick stock update buttons later? #}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-success" role="alert"> {# Green alert if everything is stocked #}
+      No products are currently below their low stock threshold. Well done!
+    </div>
+  {% endif %}
+
+  <div class="mt-4">
+       <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary"> « Back to Full Product List</a>
+  </div>
+
+{% endblock %}
