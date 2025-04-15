@@ -1,0 +1,57 @@
+{# customers/templates/customers/customer_form.html #}
+
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <h1 class="mb-4">{{ form_title }}</h1>
+      <div class="card shadow-sm"> {# Added shadow #}
+        <div class="card-body">
+          {# Use POST method; novalidate disables browser validation, letting Django handle it #}
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {# --- Keep Explicit Render for Phone Group --- #}
+            <label class="form-label">Phone Number</label>
+            <div class="input-group mb-3">
+                <span class="input-group-text">Code</span>
+                {{ form.country_code }} {# Render country_code (now a model field handled by form) #}
+                {{ form.phone_number }} {# Render phone_number (local part) #}
+            </div>
+            {# Display errors #}
+            {% for error in form.country_code.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            {% for error in form.phone_number.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            {# --- End Explicit Render ---#}
+
+
+            {# --- Render Remaining Fields (Loop unchanged) --- #}
+            {% for field in form %}
+              {# Exclude fields we rendered manually #}
+              {% if field.name != 'country_code' and field.name != 'phone_number' %}
+                <div class="mb-3">
+                  {{ field.label_tag }}
+                  {{ field }}
+                  {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+                  {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                </div>
+              {% endif %}
+            {% endfor %}
+            {# --- End Manual Loop --- #}
+
+            <div class="mt-4">
+              {# Button text changes if editing later #}
+              <button type="submit" class="btn btn-success">
+                  {% if customer %}Update Customer{% else %}Save New Customer{% endif %} {# Placeholder 'customer' check for edit reuse #}
+              </button>
+              {# Cancel goes back to list if adding, detail if editing (placeholder check) #}
+              <a href="{% if customer %}{% url 'customers:customer_detail' pk=customer.pk %}{% else %}{% url 'customers:customer_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

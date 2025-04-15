@@ -8,7 +8,7 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="mb-0">Customers</h1>
     {# Button to add customer (we'll link this properly later) #}
-    <a href="#" class="btn btn-primary"> {# <--- Placeholder Link --- #}
+    <a href="{% url 'customers:customer_add' %}" class="btn btn-primary"> {# <--- Placeholder Link --- #}
       <i class="fas fa-user-plus"></i> Add New Customer {# Optional: Font Awesome icon #}
     </a>
   </div>
@@ -28,32 +28,26 @@
           </tr>
         </thead>
         <tbody>
-          {% for customer in customers %} {# Loop through each customer in the list #}
-            <tr>
-              {# Display customer data using dot notation #}
-              <td>
-                {# Link to customer detail page (we'll create this URL later) #}
-                <a href="#">{{ customer.full_name }}</a> {# <--- Placeholder Link --- #}
-              </td>
-              <td>{{ customer.email|default:"-" }}</td> {# Use default filter if email is empty #}
-              <td>{{ customer.phone_number|default:"-" }}</td> {# Use default filter if phone is empty #}
-              <td>{{ customer.address|default:"-" }}</td> {# Display the new address field #}
-              <td>{{ customer.school_grade|default:"-" }}</td>
-              <td>
-                {# Action buttons (links will be updated later) #}
-                <a href="#" class="btn btn-sm btn-outline-primary">Details</a> {# <--- Placeholder Link --- #}
-                <a href="#" class="btn btn-sm btn-outline-secondary">Edit</a> {# <--- Placeholder Link --- #}
-              </td>
-            </tr>
-          {% endfor %} {# End of the loop #}
-        </tbody>
+            {% for customer in customers %}
+              <tr>
+                <td><a href="{% url 'customers:customer_detail' pk=customer.pk %}">{{ customer.full_name }}</a></td>
+                <td>{{ customer.email|default:"-" }}</td>
+                {# --- UPDATE PHONE DISPLAY --- #}
+                <td>{{ customer.full_phone_number|default:"-" }}</td> {# Use the property #}
+                {# --- END UPDATE --- #}
+                <td>{{ customer.address|default:"-" }}</td>
+                <td>{{ customer.school_grade|default:"-" }}</td>
+                <td>{# Action buttons #}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
       </table>
     </div>
   {% else %}
     {# Message displayed if there are no customers in the database yet #}
     <div class="alert alert-info" role="alert">
       No customers have been added yet.
-      <a href="#" class="alert-link">Add the first customer!</a> {# <--- Placeholder Link --- #}
+      <a href="{% url 'customers:customer_add' %}" class="alert-link">Add the first customer!</a> {# <--- Placeholder Link --- #}
     </div>
   {% endif %} {# End of the 'if customers' check #}
 

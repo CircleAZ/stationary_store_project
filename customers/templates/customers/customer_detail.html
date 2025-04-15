@@ -1,0 +1,90 @@
+{# customers/templates/customers/customer_detail.html #}
+
+{% extends "base.html" %} {# Use the base template #}
+
+{% block title %}{{ customer.full_name }} - Details{% endblock %} {# Dynamic page title #}
+
+{% block content %}
+  <div class="card shadow-sm mb-4"> {# Add a subtle shadow and margin #}
+    <div class="card-header bg-light"> {# Light background for header #}
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">{{ customer.full_name }}</h2>
+             {# Action buttons for Edit/Delete (Delete link placeholder for now) #}
+            <div>
+                <a href="#" class="btn btn-primary btn-sm me-2"> {# <-- EDIT LINK PLACEHOLDER --> #}
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="#" class="btn btn-danger btn-sm"> {# <-- DELETE LINK PLACEHOLDER --> #}
+                    <i class="fas fa-trash-alt"></i> Delete
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Contact Information</h5>
+                <ul class="list-unstyled mb-4">
+                    {% if customer.full_phone_number %}
+                        <li><strong>Phone:</strong> {{ customer.full_phone_number }}</li> {# Use the property #}
+                    {% endif %}
+                    {% if customer.email %}
+                        <li><strong>Email:</strong> {{ customer.email }}</li>
+                    {% endif %}
+                     {# Show placeholder if no contact info #}
+                    {% if not customer.phone_number and not customer.email %}
+                        <li><em class="text-muted">No contact information provided.</em></li>
+                    {% endif %}
+                </ul>
+
+                <h5>Address</h5>
+                <ul class="list-unstyled mb-4">
+                    {% if customer.address %}
+                        <li>{{ customer.address }}</li>
+                    {% else %}
+                         <li><em class="text-muted">No address provided.</em></li>
+                    {% endif %}
+                    {% if customer.address_hint %}
+                        <li><small class="text-muted">Hint: {{ customer.address_hint }}</small></li>
+                    {% endif %}
+                    {% if customer.postal_code %}
+                        <li><strong>Postal Code:</strong> {{ customer.postal_code }}</li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h5>Other Details</h5>
+                <ul class="list-unstyled mb-4">
+                    {% if customer.school_grade %}
+                        <li><strong>Class/Grade:</strong> {{ customer.school_grade }}</li>
+                    {% endif %}
+                    <li><strong>Customer Since:</strong> {{ customer.created_at|date:"d M Y" }}</li>
+                    <li><strong>Last Updated:</strong> {{ customer.updated_at|date:"d M Y, P" }}</li>
+                </ul>
+
+                 {% if customer.notes %}
+                    <h5>Notes</h5>
+                    <p style="white-space: pre-wrap;">{{ customer.notes }}</p> {# pre-wrap preserves whitespace/line breaks #}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="card-footer text-center"> {# Centered footer link #}
+       <a href="{% url 'customers:customer_list' %}" class="btn btn-secondary btn-sm">
+          « Back to Customer List
+       </a>
+    </div>
+  </div>
+
+  {# Placeholder for Purchase History - We will add this when Order Management exists #}
+  {# <div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h4 class="mb-0">Purchase History</h4>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">Purchase history will be displayed here once orders are implemented.</p>
+         <!-- Order list would go here -->
+    </div>
+  </div> #}
+
+{% endblock %}

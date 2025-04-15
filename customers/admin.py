@@ -1,30 +1,25 @@
+# customers/admin.py
 from django.contrib import admin
 from .models import Customer
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    # --- MODIFIED list_display ---
-    list_display = ('full_name', 'email', 'phone_number', 'address', 'school_grade', 'updated_at') # Removed 'city', added 'address'
-    # --- MODIFIED list_filter ---
-    list_filter = ('school_grade', 'created_at') # Removed 'city', 'state'
-    # --- MODIFIED search_fields ---
-    search_fields = ('first_name', 'last_name', 'middle_name', 'email', 'phone_number', 'address', 'address_hint', 'postal_code') # Removed 'city', added 'address', 'address_hint'
-    # --- Keep ordering ---
+    # --- ADD country_code ---
+    list_display = ('full_name', 'email', 'full_phone_number', 'address', 'school_grade', 'updated_at') # Display combined number
+    # --- ADD country_code ---
+    list_filter = ('country_code', 'school_grade', 'created_at') # Allow filtering by code
+    # --- ADD country_code ---
+    search_fields = ('first_name', 'last_name', 'email', 'phone_number', 'country_code', 'address', 'postal_code') # Search by code or local part
     ordering = ('first_name', 'last_name')
-    # Optional: Update fieldsets if you were using them
     # fieldsets = (
-    #     (None, {
-    #         'fields': (('first_name', 'middle_name', 'last_name'), 'school_grade')
-    #     }),
+    #     # ... other groups ...
     #     ('Contact Information', {
-    #         'fields': ('phone_number', 'email')
+    #         # --- ADD country_code ---
+    #         'fields': (('country_code', 'phone_number'), 'email') # Group code and local part
     #     }),
-    #      ('Address', {
-    #         # --- MODIFIED Address fieldset ---
-    #         'fields': ('address', 'address_hint', 'postal_code'), # Use new field names
-    #         'classes': ('collapse',)
-    #     }),
-    #     ('Notes', {
-    #         'fields': ('notes',),
-    #     }),
+    #     # ... other groups ...
     # )
+    # Optionally define a method to display full number if not using property directly in list_display
+    # def display_full_phone(self, obj):
+    #    return obj.full_phone_number
+    # display_full_phone.short_description = 'Full Phone'
