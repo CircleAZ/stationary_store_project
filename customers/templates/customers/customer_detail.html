@@ -11,10 +11,10 @@
             <h2 class="mb-0">{{ customer.full_name }}</h2>
              {# Action buttons for Edit/Delete (Delete link placeholder for now) #}
             <div>
-                <a href="#" class="btn btn-primary btn-sm me-2"> {# <-- EDIT LINK PLACEHOLDER --> #}
+                <a href="{% url 'customers:customer_edit' pk=customer.pk %}" class="btn btn-primary btn-sm me-2">
                     <i class="fas fa-edit"></i> Edit
                 </a>
-                <a href="#" class="btn btn-danger btn-sm"> {# <-- DELETE LINK PLACEHOLDER --> #}
+                <a href="{% url 'customers:customer_delete' pk=customer.pk %}" class="btn btn-danger btn-sm">
                     <i class="fas fa-trash-alt"></i> Delete
                 </a>
             </div>

@@ -59,3 +59,61 @@ def customer_add_view(request):
     }
     # Render the form template (we'll reuse this for editing later)
     return render(request, 'customers/customer_form.html', context)
+
+def customer_edit_view(request, pk):
+    """
+    Handles displaying the form pre-filled with an existing customer's data (GET)
+    and processing the submitted form data to update that customer (POST).
+    """
+    # Get the specific customer object to edit, or return 404 if not found
+    customer = get_object_or_404(Customer, pk=pk)
+    form_title = f"Edit Customer: {customer.full_name}" # Dynamic title for the page
+
+    if request.method == 'POST':
+        # If data was submitted, bind it to the form AND the existing customer instance
+        form = CustomerForm(request.POST, instance=customer) # Pass instance=customer
+        if form.is_valid():
+            # If data is valid, save changes to the existing customer object
+            updated_customer = form.save()
+            messages.success(request, f"Customer '{updated_customer.full_name}' updated successfully!")
+            # Redirect back to the customer's detail page
+            return redirect('customers:customer_detail', pk=updated_customer.pk)
+        else:
+            # If form is invalid, display errors
+            messages.error(request, "Please correct the errors below.")
+            # Fall through to render the form again (with errors)
+    else:
+        # If it's a GET request, create form instance pre-populated with the customer's data
+        form = CustomerForm(instance=customer) # Pass instance=customer to pre-fill
+
+    # Prepare context for the template (reusing customer_form.html)
+    context = {
+        'form': form,
+        'form_title': form_title,
+        'customer': customer, # Pass the customer object itself for the template's conditional logic
+    }
+    # Render the *same* template used for adding
+    return render(request, 'customers/customer_form.html', context)
+
+def customer_delete_view(request, pk):
+    """
+    Handles displaying the confirmation page for deleting a customer (GET)
+    and performing the actual deletion upon confirmation (POST).
+    """
+    # Get the customer object to delete, or 404 if not found
+    customer = get_object_or_404(Customer, pk=pk)
+
+    if request.method == 'POST':
+        # If the confirmation form was submitted (user clicked "Confirm Delete")
+        customer_name = customer.full_name # Store name before deleting for the message
+        customer.delete() # Delete the customer object from the database
+        messages.success(request, f"Customer '{customer_name}' deleted successfully.")
+        # Redirect to the customer list page
+        return redirect('customers:customer_list')
+    else:
+        # If it's a GET request, display the confirmation page
+        context = {
+            'customer': customer, # Pass the customer object to the template for display
+        }
+        # Render the confirmation template (we'll create this next)
+        return render(request, 'customers/customer_confirm_delete.html', context)

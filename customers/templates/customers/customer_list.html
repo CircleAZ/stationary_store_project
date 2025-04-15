@@ -30,6 +30,12 @@
         <tbody>
             {% for customer in customers %}
               <tr>
+                <td>
+                    <a href="{% url 'customers:customer_detail' pk=customer.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
+                    {# --- UPDATE THIS EDIT LINK --- #}
+                    <a href="{% url 'customers:customer_edit' pk=customer.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                    {# --- END UPDATE --- #}
+                  </td>
                 <td><a href="{% url 'customers:customer_detail' pk=customer.pk %}">{{ customer.full_name }}</a></td>
                 <td>{{ customer.email|default:"-" }}</td>
                 {# --- UPDATE PHONE DISPLAY --- #}

@@ -1,0 +1,41 @@
+{# customers/templates/customers/customer_confirm_delete.html #}
+
+{% extends "base.html" %}
+
+{% block title %}Confirm Delete Customer{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card border-danger shadow-sm"> {# Use danger border for warning #}
+        <div class="card-header bg-danger text-white">
+          <h2 class="mb-0">Confirm Deletion</h2>
+        </div>
+        <div class="card-body">
+          <p class="lead">Are you sure you want to delete the customer:</p>
+          <h4 class="text-danger">{{ customer.full_name }}</h4>
+          <p>
+            {% if customer.email %}Email: {{ customer.email }}<br>{% endif %}
+            {% if customer.full_phone_number %}Phone: {{ customer.full_phone_number }}{% endif %}
+          </p>
+
+          <p class="text-danger fw-bold">This action cannot be undone.</p> {# Bold warning #}
+
+          {# Form that submits the confirmation via POST #}
+          <form method="post">
+            {% csrf_token %} {# Security token required for POST #}
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end"> {# Button alignment #}
+                <a href="{% url 'customers:customer_detail' pk=customer.pk %}" class="btn btn-secondary">
+                  Cancel
+                </a>
+                <button type="submit" class="btn btn-danger">
+                  Yes, Delete Customer
+                </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
