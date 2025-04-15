@@ -74,16 +74,22 @@ class CustomerForm(forms.ModelForm):
     # --- END clean_phone_number ---
 
     # --- Optional: Add clean() method for combined validation ---
-    def clean(self):
-        cleaned_data = super().clean()
+    # customers/forms.py
+# Inside CustomerForm:
+
+    # --- Optional: Add clean() method for combined validation ---
+    def clean(self): # <--- ADD 'self' HERE
+        cleaned_data = super().clean() # No change needed here
         country_code = cleaned_data.get("country_code")
         phone_local_part = cleaned_data.get("phone_number")
 
         # Example: Require local part if country code is entered, and vice-versa
         if country_code and not phone_local_part:
-            self.add_error('phone_number', "Phone number (local part) is required when country code is selected.")
+            # Use self.add_error
+            self.add_error('phone_number', "Phone number (local part) is required when country code is selected.") # <--- Use self.add_error
         elif phone_local_part and not country_code:
-             self.add_error('country_code', "Country code is required when phone number (local part) is entered.")
+             # Use self.add_error
+             self.add_error('country_code', "Country code is required when phone number (local part) is entered.") # <--- Use self.add_error
 
         # Add more complex validation across fields if needed
 

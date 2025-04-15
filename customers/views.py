@@ -48,7 +48,7 @@ def customer_add_view(request):
             messages.success(...)
             return redirect(...) # Redirect works as before
         else:
-            messages.error(...)
+            messages.error(request, "Please correct the errors below.")
     else:
          form = CustomerForm() # Or CustomerForm(instance=customer) for edit
     
