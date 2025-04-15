@@ -18,16 +18,19 @@
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link active" aria-current="page" href="#">Home</a> {# Placeholder Link #}
-            </li>
-            <li class="nav-item">
-                {# Ensure this links to the unfiltered list #}
-                <a class="nav-link" href="{% url 'inventory:product_list' %}">Products</a> {# <-- VERIFY/CHANGE THIS LINE #}
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a class="nav-link active" aria-current="page" href="#">Home</a> {# Placeholder #}
               </li>
-            <!-- Add more navigation links later -->
-          </ul>
+              <li class="nav-item">
+                 <a class="nav-link" href="{% url 'inventory:product_list' %}">Products</a>
+              </li>
+              {# --- NEW NAVBAR LINK for Customers --- #}
+              <li class="nav-item">
+                 <a class="nav-link" href="{% url 'customers:customer_list' %}">Customers</a> {# <-- ADD THIS LINE #}
+              </li>
+              {# Add more navigation links later (Orders, Dashboard etc.) #}
+            </ul>
         </div>
       </div>
     </nav>

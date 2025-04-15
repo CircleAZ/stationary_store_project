@@ -1,0 +1,60 @@
+{# customers/templates/customers/customer_list.html #}
+
+{% extends "base.html" %} {# Inherit structure and styles from base.html #}
+
+{% block title %}Customer List{% endblock %} {# Set the page title #}
+
+{% block content %} {# Fill the main content block #}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Customers</h1>
+    {# Button to add customer (we'll link this properly later) #}
+    <a href="#" class="btn btn-primary"> {# <--- Placeholder Link --- #}
+      <i class="fas fa-user-plus"></i> Add New Customer {# Optional: Font Awesome icon #}
+    </a>
+  </div>
+
+  {% if customers %} {# Check if the 'customers' list passed from the view has items #}
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            {# Table headers for the customer details we want to show #}
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Phone</th>
+            <th scope="col">Address</th>
+            <th scope="col">Class/Grade</th>
+            <th scope="col">Actions</th> {# Column for Edit/View Details buttons #}
+          </tr>
+        </thead>
+        <tbody>
+          {% for customer in customers %} {# Loop through each customer in the list #}
+            <tr>
+              {# Display customer data using dot notation #}
+              <td>
+                {# Link to customer detail page (we'll create this URL later) #}
+                <a href="#">{{ customer.full_name }}</a> {# <--- Placeholder Link --- #}
+              </td>
+              <td>{{ customer.email|default:"-" }}</td> {# Use default filter if email is empty #}
+              <td>{{ customer.phone_number|default:"-" }}</td> {# Use default filter if phone is empty #}
+              <td>{{ customer.address|default:"-" }}</td> {# Display the new address field #}
+              <td>{{ customer.school_grade|default:"-" }}</td>
+              <td>
+                {# Action buttons (links will be updated later) #}
+                <a href="#" class="btn btn-sm btn-outline-primary">Details</a> {# <--- Placeholder Link --- #}
+                <a href="#" class="btn btn-sm btn-outline-secondary">Edit</a> {# <--- Placeholder Link --- #}
+              </td>
+            </tr>
+          {% endfor %} {# End of the loop #}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {# Message displayed if there are no customers in the database yet #}
+    <div class="alert alert-info" role="alert">
+      No customers have been added yet.
+      <a href="#" class="alert-link">Add the first customer!</a> {# <--- Placeholder Link --- #}
+    </div>
+  {% endif %} {# End of the 'if customers' check #}
+
+{% endblock %} {# End of the content block #}
