@@ -1,0 +1,105 @@
+{# orders/templates/orders/order_list.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Orders" }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">{{ page_title|default:"Orders" }}</h1>
+    {# Link back to the POS/Create Order page #}
+    <a href="{% url 'orders:order_create' %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Create New Order
+    </a>
+  </div>
+
+  {% if orders %}
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead>
+          <tr>
+            <th scope="col">Order ID</th>
+            <th scope="col">Date</th>
+            <th scope="col">Customer</th>
+            <th scope="col" class="text-end">Total</th>
+            <th scope="col">Payment Status</th>
+            <th scope="col">Order Status</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %} {# Loop through the paginated orders #}
+            <tr>
+              <td>
+                {# Link to detail page (URL created next) - use first 8 chars of UUID #}
+                <a href="{% url 'orders:order_detail' pk=order.pk %}">{{ order.order_id|stringformat:".8s" }}</a> {# <-- Placeholder Link #}
+              </td>
+              <td>{{ order.created_at|date:"d M Y, P" }}</td>
+              <td>{{ order.customer.full_name|default:"Guest" }}</td>
+              <td class="text-end">₹{{ order.total_amount|floatformat:2 }}</td>
+              <td>
+                {# Use badges for status #}
+                <span class="badge rounded-pill
+                  {% if order.payment_status == order.PAYMENT_STATUS_PAID %} bg-success
+                  {% elif order.payment_status == order.PAYMENT_STATUS_PARTIAL %} bg-warning text-dark
+                  {% elif order.payment_status == order.PAYMENT_STATUS_REFUNDED %} bg-secondary
+                  {% else %} bg-danger {% endif %}">
+                  {{ order.get_payment_status_display }} {# Use display method #}
+                </span>
+              </td>
+              <td>
+                 <span class="badge rounded-pill
+                  {% if order.status == order.ORDER_STATUS_COMPLETED %} bg-success
+                  {% elif order.status == order.ORDER_STATUS_PROCESSING %} bg-info text-dark
+                  {% elif order.status == order.ORDER_STATUS_CANCELLED %} bg-secondary
+                  {% else %} bg-primary {% endif %}">
+                   {{ order.get_status_display }} {# Use display method #}
+                 </span>
+              </td>
+              <td>
+                <a href="{% url 'orders:order_detail' pk=order.pk %}" class="btn btn-sm btn-outline-primary">Details</a> {# <-- Placeholder Link #}
+                {# Edit/Delete links for orders might not be standard #}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {# --- Pagination Controls --- #}
+    {% if orders.has_other_pages %}
+      <nav aria-label="Order pagination">
+        <ul class="pagination justify-content-center">
+          {# Previous Page Link #}
+          {% if orders.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ orders.previous_page_number }}">« Previous</a></li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">« Previous</span></li>
+          {% endif %}
+
+          {# Page Numbers #}
+          {% for i in orders.paginator.page_range %}
+            {% if orders.number == i %}
+              <li class="page-item active" aria-current="page"><span class="page-link">{{ i }}</span></li>
+            {% else %}
+              <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+            {% endif %}
+          {% endfor %}
+
+          {# Next Page Link #}
+          {% if orders.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ orders.next_page_number }}">Next »</a></li>
+          {% else %}
+            <li class="page-item disabled"><span class="page-link">Next »</span></li>
+          {% endif %}
+        </ul>
+      </nav>
+    {% endif %}
+    {# --- End Pagination Controls --- #}
+
+  {% else %}
+    <div class="alert alert-info" role="alert">
+      No orders found. <a href="{% url 'orders:order_create' %}" class="alert-link">Create the first order!</a>
+    </div>
+  {% endif %}
+
+{% endblock %}

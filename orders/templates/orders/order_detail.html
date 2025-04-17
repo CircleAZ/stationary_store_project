@@ -1,0 +1,184 @@
+{# orders/templates/orders/order_detail.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Order Details" }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">{{ page_title }}</h1>
+    <div>
+        <a href="{% url 'orders:order_list' %}" class="btn btn-secondary btn-sm me-2">« Back to Order List</a>
+        {# Potential actions like Print Receipt, Edit Status etc. can go here later #}
+        {# <button class="btn btn-outline-primary btn-sm">Print Receipt</button> #}
+    </div>
+  </div>
+
+  <div class="row g-4">
+    {# Order Info Column #}
+    <div class="col-md-6">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header">Order Information</div>
+        <div class="card-body">
+          <dl class="row mb-0"> {# Definition List for key-value pairs #}
+            <dt class="col-sm-4">Order ID:</dt>
+            <dd class="col-sm-8">{{ order.order_id }}</dd>
+
+            <dt class="col-sm-4">Date Placed:</dt>
+            <dd class="col-sm-8">{{ order.created_at|date:"d M Y, P" }}</dd>
+
+            <dt class="col-sm-4">Order Status:</dt>
+            <dd class="col-sm-8">
+               <span class="badge rounded-pill
+                {% if order.status == order.ORDER_STATUS_COMPLETED %} bg-success
+                {% elif order.status == order.ORDER_STATUS_PROCESSING %} bg-info text-dark
+                {% elif order.status == order.ORDER_STATUS_CANCELLED %} bg-secondary
+                {% else %} bg-primary {% endif %}">
+                 {{ order.get_status_display }}
+               </span>
+
+               {# --- ADD STATUS UPDATE FORM --- #}
+               <form action="{% url 'orders:order_update_status' pk=order.pk %}" method="post" class="d-inline-block ms-2 align-middle">
+                {% csrf_token %}
+                <div class="input-group input-group-sm" style="max-width: 200px;"> {# Small input group #}
+                    {{ status_update_form.status }} {# Render the dropdown #}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Update</button>
+                </div>
+                {# Optional: Display form errors if needed, though unlikely for valid choices #}
+                 {{ status_update_form.status.errors }} 
+               </form>
+            {# --- END STATUS UPDATE FORM --- #}
+
+            </dd>
+
+             <dt class="col-sm-4">Placed By:</dt>
+             <dd class="col-sm-8">{{ order.created_by.get_full_name|default:order.created_by.username|default:"N/A" }}</dd>
+
+          </dl>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-header">Payment Information</div>
+         <div class="card-body">
+          <dl class="row mb-0">
+             <dt class="col-sm-4">Payment Status:</dt>
+             <dd class="col-sm-8">
+                <span class="badge rounded-pill
+                  {% if order.payment_status == order.PAYMENT_STATUS_PAID %} bg-success
+                  {% elif order.payment_status == order.PAYMENT_STATUS_PARTIAL %} bg-warning text-dark
+                  {% elif order.payment_status == order.PAYMENT_STATUS_REFUNDED %} bg-secondary
+                  {% else %} bg-danger {% endif %}">
+                  {{ order.get_payment_status_display }}
+                </span>
+             </dd>
+
+             <dt class="col-sm-4">Payment Method:</dt>
+             <dd class="col-sm-8">{{ order.payment_method.name|default:"N/A" }}</dd>
+
+             {% if order.payment_reference %}
+               <dt class="col-sm-4">Reference:</dt>
+               <dd class="col-sm-8">{{ order.payment_reference }}</dd>
+             {% endif %}
+
+             <dt class="col-sm-4">Amount Paid:</dt>
+             <dd class="col-sm-8">₹{{ order.amount_paid|floatformat:2 }}</dd>
+
+             <dt class="col-sm-4">Amount Due:</dt>
+             <dd class="col-sm-8">₹{{ amount_due|floatformat:2 }}</dd>
+
+          </dl>
+        </div>
+      </div>
+
+    </div>{# End Order Info Column #}
+
+    {# Customer & Items Column #}
+    <div class="col-md-6">
+       <div class="card shadow-sm mb-4">
+        <div class="card-header">Customer Information</div>
+        <div class="card-body">
+          {% if order.customer %}
+             <dl class="row mb-0">
+                <dt class="col-sm-4">Name:</dt>
+                <dd class="col-sm-8"><a href="{% url 'customers:customer_detail' pk=order.customer.pk %}">{{ order.customer.full_name }}</a></dd>
+
+                {% if order.customer.full_phone_number %}
+                   <dt class="col-sm-4">Phone:</dt>
+                   <dd class="col-sm-8">{{ order.customer.full_phone_number }}</dd>
+                {% endif %}
+
+                {% if order.customer.email %}
+                   <dt class="col-sm-4">Email:</dt>
+                   <dd class="col-sm-8">{{ order.customer.email }}</dd>
+                {% endif %}
+
+                 {% if order.customer.address %}
+                   <dt class="col-sm-4">Address:</dt>
+                   <dd class="col-sm-8">{{ order.customer.address }}{% if order.customer.postal_code %}, {{ order.customer.postal_code }}{% endif %}</dd>
+                {% endif %}
+             </dl>
+          {% else %}
+            <p class="text-muted">No customer assigned (Guest Order).</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+         <div class="card-header">Items Ordered</div>
+         <div class="table-responsive">
+            <table class="table table-sm mb-0"> {# table-sm for tighter spacing #}
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Price/Unit</th>
+                        <th class="text-end">Line Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.items.all %} {# Access prefetched items #}
+                     <tr>
+                        <td>
+                            {{ item.product_name }} {# Show name snapshot #}
+                            {% if item.product %} {# Optionally link if product still exists #}
+                            <small><a href="{% url 'inventory:product_detail' pk=item.product.pk %}" class="text-muted"> (View Product)</a></small>
+                            {% else %}
+                            <small class="text-muted"> (Product Deleted)</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ item.quantity }}</td>
+                        <td class="text-end">₹{{ item.price|floatformat:2 }}</td>
+                        <td class="text-end">₹{{ item.get_cost|floatformat:2 }}</td>
+                     </tr>
+                    {% empty %}
+                      <tr><td colspan="4" class="text-center text-muted">No items found for this order.</td></tr>
+                    {% endfor %}
+                </tbody>
+                 <tfoot>
+                     <tr>
+                         <td colspan="2"></td>
+                         <td class="text-end fw-bold">Subtotal:</td>
+                         <td class="text-end fw-bold">₹{{ order.subtotal|floatformat:2 }}</td>
+                     </tr>
+                     {# Add Tax row if applicable #}
+                     {# <tr><td colspan="2"></td><td class="text-end">Tax:</td><td class="text-end">₹{{ order.tax_amount|floatformat:2 }}</td></tr> #}
+                     <tr>
+                         <td colspan="2"></td>
+                         <td class="text-end fw-bold">Discount:</td>
+                         {# Use the model property #}
+                         <td class="text-end fw-bold">- ₹{{ order.discount_amount|floatformat:2 }}</td>
+                     </tr>
+                     <tr>
+                         <td colspan="2"></td>
+                         <td class="text-end fw-bold fs-5">Total:</td> {# Larger font size #}
+                         <td class="text-end fw-bold fs-5">₹{{ order.total_amount|floatformat:2 }}</td>
+                     </tr>
+                 </tfoot>
+            </table>
+         </div>
+      </div>
+
+    </div>{# End Customer/Items Column #}
+  </div> {# End Row #}
+
+{% endblock %}

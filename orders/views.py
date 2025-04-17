@@ -10,6 +10,10 @@ from .models import PaymentMethod, Order, OrderItem # <-- IMPORT Order and Order
 from customers.models import Customer
 from inventory.models import Product
 from django.contrib import messages
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # For pagination
+from decimal import Decimal
+from .forms import OrderStatusUpdateForm 
+from django.views.decorators.http import require_POST
 
 # Create your views here.
 
@@ -260,3 +264,77 @@ def order_create_api(request):
     else:
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
 
+@login_required
+def order_list_view(request):
+    """ Displays a list of all past orders, potentially paginated. """
+    # Get all orders, use select_related for efficiency to fetch related Customer/User
+    order_list = Order.objects.select_related('customer', 'created_by').all() # .all() implies default ordering ('-created_at')
+
+    # Pagination (Optional but recommended for long lists)
+    paginator = Paginator(order_list, 20) # Show 20 orders per page
+    page_number = request.GET.get('page')
+    try:
+        orders = paginator.page(page_number)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page.
+        orders = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range (e.g. 9999), deliver last page of results.
+        orders = paginator.page(paginator.num_pages)
+
+
+    context = {
+        'orders': orders, # Pass the paginated orders object
+        'page_title': 'Order History'
+    }
+    return render(request, 'orders/order_list.html', context)
+
+@login_required
+def order_detail_view(request, pk):
+    """ Displays the details of a single order and the status update form. """
+    order = get_object_or_404(
+        Order.objects.select_related('customer', 'created_by', 'payment_method')
+                     .prefetch_related('items', 'items__product'),
+        pk=pk
+    )
+
+    # --- Calculate amount due ---
+    
+    amount_due = max(order.total_amount - order.amount_paid, Decimal('0.00'))
+    # --- End calculation ---
+
+    status_update_form = OrderStatusUpdateForm(initial={'status': order.status})
+
+    context = {
+        'order': order,
+        'amount_due': amount_due,
+        'status_update_form': status_update_form, # <-- Pass form to context
+        'page_title': f'Order Details {str(order.pk)[:8]}'
+    }
+    return render(request, 'orders/order_detail.html', context)
+
+@login_required
+@require_POST # This view should only accept POST requests
+def order_update_status_view(request, pk):
+    """ Handles POST request to update the status of a specific order. """
+    order = get_object_or_404(Order, pk=pk)
+    form = OrderStatusUpdateForm(request.POST) # Bind POST data to the form
+
+    if form.is_valid():
+        new_status = form.cleaned_data['status']
+
+        # Optional: Add logic here to check if status transition is valid
+        # (e.g., cannot go from Completed back to Pending?)
+        # For now, we allow any valid status change.
+
+        order.status = new_status
+        order.save(update_fields=['status']) # Save only the status field
+        messages.success(request, f"Order {str(order.pk)[:8]} status updated to '{order.get_status_display()}'.")
+    else:
+        # This shouldn't happen with a simple choice field unless request is manipulated,
+        # but good to handle it. Maybe add error message based on form.errors
+        messages.error(request, "Invalid status selected.")
+
+    # Always redirect back to the order detail page
+    return redirect('orders:order_detail', pk=order.pk)
+# --- END Status Update View ---

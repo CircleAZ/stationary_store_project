@@ -27,9 +27,14 @@
               </li>
               {# --- NEW NAVBAR LINK for Customers --- #}
               <li class="nav-item">
-                 <a class="nav-link" href="{% url 'customers:customer_list' %}">Customers</a> {# <-- ADD THIS LINE #}
+                 <a class="nav-link" href="{% url 'customers:customer_list' %}">Customers</a> 
               </li>
-              {# Add more navigation links later (Orders, Dashboard etc.) #}
+              {# --- NEW NAVBAR LINK for Orders --- #}
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'orders:order_list' %}">Orders</a> 
+             </li>
+
+              {# Add more navigation links later (Dashboard etc.) #}
             </ul>
         </div>
       </div>

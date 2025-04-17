@@ -1,5 +1,6 @@
 # orders/models.py
 
+from decimal import Decimal
 from django.db import models
 from django.conf import settings # To link to the User model
 from inventory.models import Product # Import Product from inventory app
@@ -99,6 +100,18 @@ class Order(models.Model):
         # Show a user-friendly representation
         return f"Order {str(self.order_id)[:8]} - {self.customer.full_name if self.customer else 'Guest'}"
 
+    @property
+    def discount_amount(self):
+        """ Calculates the total discount applied to the order. """
+        # Ensure fields are not None before calculation
+        sub = self.subtotal if self.subtotal is not None else Decimal('0.00')
+        tax = self.tax_amount if self.tax_amount is not None else Decimal('0.00')
+        total = self.total_amount if self.total_amount is not None else Decimal('0.00')
+        # Discount is difference between pre-discount total and final total
+        discount = (sub + tax) - total
+        # Return non-negative discount
+        return max(discount, Decimal('0.00'))
+
     # We'll add methods later to calculate totals based on items
 
 
@@ -136,3 +149,6 @@ class OrderItem(models.Model):
 
     class Meta:
         ordering = ('order', 'product_name') # Order items within an order
+
+    
+
