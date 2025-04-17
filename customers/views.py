@@ -164,3 +164,5 @@ def customer_add_modal_api(request):
     else:
         # Method not allowed
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+    
+    

@@ -183,249 +183,217 @@
 
 {% block extra_js %}
 <script>
-  // Wait for the DOM to be fully loaded
-  document.addEventListener('DOMContentLoaded', function() {
+// Wait for the DOM to be fully loaded before running script
+document.addEventListener('DOMContentLoaded', function() {
 
-      // --- Customer Search Elements ---
-      const customerSearchInput = document.getElementById('customer-search-input');
-      const customerSearchResultsDiv = document.getElementById('customer-search-results');
-      const selectedCustomerInfoDiv = document.getElementById('selected-customer-info');
-      const selectedCustomerIdInput = document.getElementById('selected-customer-id');
-      const addCustomerBtn = document.getElementById('add-customer-btn'); // Get add button
+    // --- Customer Selection Elements ---
+    const customerSearchInput = document.getElementById('customer-search-input');
+    const customerSearchResultsDiv = document.getElementById('customer-search-results');
+    const selectedCustomerInfoDiv = document.getElementById('selected-customer-info');
+    const selectedCustomerIdInput = document.getElementById('selected-customer-id');
+    const addCustomerBtn = document.getElementById('add-customer-btn');
+    const addCustomerModalEl = document.getElementById('addCustomerModal');
+    const addCustomerModalBody = document.getElementById('add-customer-modal-body');
 
-      const addCustomerModalEl = document.getElementById('addCustomerModal');
-      const addCustomerModalBody = document.getElementById('add-customer-modal-body');
-      // --- Event Listener for Customer Search Input ---
-      
-      
-      let addCustomerModalInstance = null;
-      if (addCustomerModalEl) {
-           addCustomerModalInstance = new bootstrap.Modal(addCustomerModalEl);
-      }
-  
-      // --- Listener for "Add New" Customer Button ---
-      addCustomerBtn.addEventListener('click', function() {
-          console.log("Add Customer button clicked");
-          if (!addCustomerModalInstance) return; // Safety check
-  
-          // Fetch the form HTML from the backend
-          fetch("{% url 'customers:customer_add_form_htmx' %}") // Use Django url tag
-              .then(response => response.text())
-              .then(html => {
-                  addCustomerModalBody.innerHTML = html; // Load form into modal body
-                  addCustomerModalInstance.show(); // Show the modal
-                  // Attach submit listener AFTER form is loaded into modal
-                  attachModalFormSubmitListener();
-              })
-              .catch(error => {
-                  console.error("Error fetching customer form:", error);
-                  addCustomerModalBody.innerHTML = '<p class="text-danger">Could not load customer form. Please try again.</p>';
-                  addCustomerModalInstance.show(); // Show modal even with error
-              });
-      });
-  
-      // --- Function to Attach Listener to Modal Form Submission ---
-      function attachModalFormSubmitListener() {
-          const modalForm = addCustomerModalBody.querySelector('form'); // Find the form inside the modal
-          if (modalForm) {
-              modalForm.addEventListener('submit', function(e) {
-                  e.preventDefault(); // Prevent default browser form submission
-                  console.log("Modal form submitted");
-                  clearModalErrors(); // Clear previous errors
-  
-                  const formData = new FormData(modalForm); // Get form data
-  
-                  // Send data to the modal API endpoint via fetch POST
-                  fetch("{% url 'customers:customer_add_modal_api' %}", {
-                      method: 'POST',
-                      body: formData,
-                      headers: {
-                          // Django needs CSRF token for POST. Get it from the form's hidden input.
-                          'X-CSRFToken': formData.get('csrfmiddlewaretoken')
-                      }
-                  })
-                  .then(response => response.json()) // Expect JSON response
-                  .then(data => {
-                      if (data.success) {
-                          console.log("Customer added successfully:", data);
-                          addCustomerModalInstance.hide(); // Hide modal on success
-                          selectCustomer(data.customer_id, data.customer_text); // Select the newly added customer
-                          addCustomerModalBody.innerHTML = 'Loading form...'; // Reset modal body
-                      } else {
-                          console.error("Form validation failed:", data.errors);
-                          // Display errors within the modal
-                          displayModalErrors(data.errors);
-                      }
-                  })
-                  .catch(error => {
-                      console.error('Error submitting modal form:', error);
-                      // Display a generic error in the modal
-                      document.getElementById('customer-modal-non-field-errors').textContent = 'An unexpected error occurred. Please try again.';
-                  });
-              });
-          } else {
-               console.error("Could not find form inside modal body");
-          }
-      }
-  
-      // --- Function to Display Errors in Modal ---
-      function displayModalErrors(errors) {
-          // Clear previous errors first (redundant if clearModalErrors called, but safe)
-          clearModalErrors();
-          // Display non-field errors (e.g., __all__ or save errors)
-          if (errors.__all__) {
-               const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
-               if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = errors.__all__.join('; '); // Join if it's a list
-          }
-          // Display field-specific errors
-          for (const fieldName in errors) {
-              if (fieldName !== '__all__') {
-                  const errorDiv = document.getElementById(`error_id_${fieldName}`); // Match ID from partial template
-                  if (errorDiv) {
-                      errorDiv.textContent = errors[fieldName].join('; '); // Join multiple errors for one field
-                  }
-                  // Add 'is-invalid' class to the input field itself (optional styling)
-                  const inputField = addCustomerModalBody.querySelector(`[name="${fieldName}"]`);
-                  if (inputField) {
-                      inputField.classList.add('is-invalid');
-                  }
-              }
-          }
-      }
-  
-      // --- Function to Clear Errors in Modal ---
-      function clearModalErrors() {
-           // Clear general errors
-           const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
-           if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = '';
-           // Clear field errors and remove 'is-invalid' class
-           const errorDivs = addCustomerModalBody.querySelectorAll('.invalid-feedback');
-           errorDivs.forEach(div => div.textContent = '');
-           const invalidInputs = addCustomerModalBody.querySelectorAll('.is-invalid');
-           invalidInputs.forEach(input => input.classList.remove('is-invalid'));
-      }
-  
-  
-      // --- Existing Placeholders for Product Search / Order Submit ---
-      // ... (keep this code) ...
-  
- // End DOMContentLoaded
-  
-      
-      let customerSearchTimeout; // To debounce requests
-      customerSearchInput.addEventListener('input', function() {
-          // Clear previous timeout
-          clearTimeout(customerSearchTimeout);
+    // Initialize Bootstrap Modal instance (requires Bootstrap JS loaded)
+    let addCustomerModalInstance = null;
+    if (addCustomerModalEl) {
+        addCustomerModalInstance = new bootstrap.Modal(addCustomerModalEl);
+    } else {
+        console.error("Add Customer Modal element not found!");
+    }
 
-          const query = this.value.trim(); // Get input value, remove whitespace
+    // --- Customer Search Logic ---
+    let customerSearchTimeout; // Used for debouncing search requests
+    customerSearchInput.addEventListener('input', function() {
+        clearTimeout(customerSearchTimeout);
+        const query = this.value.trim();
 
-          // Clear previous results immediately
-          customerSearchResultsDiv.innerHTML = '';
-          // Don't search if query is too short
-          if (query.length < 2) {
-               customerSearchResultsDiv.style.display = 'none'; // Hide results container
-               return;
-          }
+        customerSearchResultsDiv.innerHTML = ''; // Clear previous results
+        if (query.length < 2) { // Don't search for very short strings
+            customerSearchResultsDiv.style.display = 'none';
+            return;
+        }
 
-          // Debounce: Wait 300ms after user stops typing before sending request
-          customerSearchTimeout = setTimeout(() => {
-              console.log('Searching customers for:', query);
-              // Fetch customer data from our API endpoint
-              fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`) // Use encodeURIComponent for safety
-                  .then(response => response.json()) // Parse the JSON response
-                  .then(data => {
-                      displayCustomerResults(data.results); // Call function to display results
-                  })
-                  .catch(error => {
-                      console.error('Error fetching customer search results:', error);
-                       customerSearchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Error loading results.</div>';
-                       customerSearchResultsDiv.style.display = 'block';
-                  });
-          }, 300); // 300ms delay
-      });
+        // Wait 300ms after user stops typing
+        customerSearchTimeout = setTimeout(() => {
+            fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`)
+                .then(response => {
+                    if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                    return response.json();
+                 })
+                .then(data => {
+                    displayCustomerResults(data.results);
+                })
+                .catch(error => {
+                    console.error('Error fetching customer search results:', error);
+                    customerSearchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Error loading results.</div>';
+                    customerSearchResultsDiv.style.display = 'block';
+                });
+        }, 300);
+    });
 
-      // --- Function to Display Customer Search Results ---
-      function displayCustomerResults(customers) {
-          customerSearchResultsDiv.innerHTML = ''; // Clear previous results
+    // Function to display customer search results
+    function displayCustomerResults(customers) {
+        customerSearchResultsDiv.innerHTML = ''; // Clear previous results
+        if (customers && customers.length > 0) {
+            customers.forEach(customer => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.classList.add('list-group-item', 'list-group-item-action', 'customer-result-item');
+                item.textContent = customer.text; // Display text from API
+                item.dataset.customerId = customer.id; // Store ID
 
-          if (customers && customers.length > 0) {
-              customers.forEach(customer => {
-                  // Create a clickable item for each customer
-                  const item = document.createElement('a');
-                  item.href = '#'; // Prevent page jump
-                  item.classList.add('list-group-item', 'list-group-item-action', 'customer-result-item');
-                  item.textContent = customer.text; // Display name/contact info
-                  item.dataset.customerId = customer.id; // Store customer ID in data attribute
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    selectCustomer(customer.id, customer.text);
+                });
+                customerSearchResultsDiv.appendChild(item);
+            });
+            customerSearchResultsDiv.style.display = 'block';
+        } else {
+            customerSearchResultsDiv.innerHTML = '<div class="list-group-item text-muted">No customers found.</div>';
+            customerSearchResultsDiv.style.display = 'block';
+        }
+    }
 
-                  // --- Event Listener for Clicking a Result ---
-                  item.addEventListener('click', function(e) {
-                      e.preventDefault(); // Prevent default anchor behavior
-                      selectCustomer(customer.id, customer.text);
-                  });
+    // Function to handle selecting a customer from search results
+    function selectCustomer(customerId, customerText) {
+        selectedCustomerInfoDiv.textContent = `Selected: ${customerText}`;
+        selectedCustomerIdInput.value = customerId; // Set hidden input value
+        customerSearchInput.value = ''; // Clear search input
+        customerSearchResultsDiv.innerHTML = ''; // Clear results list
+        customerSearchResultsDiv.style.display = 'none'; // Hide results list
+    }
 
-                  customerSearchResultsDiv.appendChild(item);
-              });
-              customerSearchResultsDiv.style.display = 'block'; // Show results container
-          } else {
-              // Show 'No results' message
-              customerSearchResultsDiv.innerHTML = '<div class="list-group-item text-muted">No customers found.</div>';
-              customerSearchResultsDiv.style.display = 'block';
-          }
-      }
+    // --- Add Customer Modal Logic ---
+    addCustomerBtn.addEventListener('click', function() {
+        if (!addCustomerModalInstance) {
+             console.error("Cannot open Add Customer modal, instance not found.");
+             alert("Modal functionality error. Check console.");
+             return;
+        }
 
-      // --- Function to Handle Customer Selection ---
-      function selectCustomer(customerId, customerText) {
-          console.log('Selected customer:', customerId, customerText);
-          // Update the display area
-          selectedCustomerInfoDiv.textContent = `Selected: ${customerText}`;
-          // Store the ID in the hidden input field
-          selectedCustomerIdInput.value = customerId;
-          // Clear search input and hide results
-          customerSearchInput.value = '';
-          customerSearchResultsDiv.innerHTML = '';
-          customerSearchResultsDiv.style.display = 'none';
-      }
+        // Fetch the customer form HTML fragment
+        fetch("{% url 'customers:customer_add_form_htmx' %}")
+            .then(response => {
+                 if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                 return response.text();
+             })
+            .then(html => {
+                addCustomerModalBody.innerHTML = html; // Load form HTML into modal
+                clearModalErrors(); // Clear any previous errors before showing
+                addCustomerModalInstance.show(); // Show the modal
+                attachModalFormSubmitListener(); // Set up listener for the form inside the modal
+            })
+            .catch(error => {
+                console.error("Error fetching or showing customer form:", error);
+                addCustomerModalBody.innerHTML = '<p class="text-danger">Could not load customer form. Please try again.</p>';
+                addCustomerModalInstance.show(); // Still show modal to display error
+            });
+    });
 
-      // --- Clear Selection/Deselect Customer (Optional) ---
-      // You could add a small 'x' button next to selectedCustomerInfoDiv
-      // that calls a function like this:
-      // function clearCustomerSelection() {
-      //     selectedCustomerInfoDiv.textContent = '';
-      //     selectedCustomerIdInput.value = '';
-      // }
+    // Function to attach the submit listener to the form *inside* the modal
+    function attachModalFormSubmitListener() {
+        const modalForm = addCustomerModalBody.querySelector('form');
+        if (modalForm) {
+            modalForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Stop default page reload
+                clearModalErrors(); // Clear previous errors
+
+                const formData = new FormData(modalForm);
+
+                // Send form data asynchronously to the API endpoint
+                fetch("{% url 'customers:customer_add_modal_api' %}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: { // Required for Django POST requests
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    }
+                })
+                .then(response => response.json()) // Expect JSON response
+                .then(data => {
+                    if (data.success) {
+                        addCustomerModalInstance.hide(); // Close modal on success
+                        selectCustomer(data.customer_id, data.customer_text); // Select the new customer
+                        addCustomerModalBody.innerHTML = 'Loading form...'; // Reset modal body for next time
+                    } else {
+                        // Display validation errors returned from the server
+                        displayModalErrors(data.errors);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error submitting modal form:', error);
+                    // Display a generic error message inside the modal
+                     const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
+                     if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = 'An unexpected error occurred. Please try again.';
+                });
+            });
+        } else {
+            console.error("Could not find form inside modal body to attach listener.");
+        }
+    }
+
+    // Function to display validation errors inside the modal form
+    function displayModalErrors(errors) {
+        // General (non-field) errors
+        if (errors.__all__) {
+             const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
+             if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = errors.__all__.join('; ');
+        }
+        // Field-specific errors
+        for (const fieldName in errors) {
+            if (fieldName !== '__all__') {
+                const errorDiv = document.getElementById(`error_id_${fieldName}`);
+                const inputField = addCustomerModalBody.querySelector(`[name="${fieldName}"]`);
+                if (errorDiv) {
+                    errorDiv.textContent = errors[fieldName].join('; '); // Show errors
+                }
+                if (inputField) {
+                    inputField.classList.add('is-invalid'); // Add red border to field
+                }
+            }
+        }
+    }
+
+    // Function to clear validation errors from the modal form
+    function clearModalErrors() {
+         const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
+         if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = '';
+         const errorDivs = addCustomerModalBody.querySelectorAll('.invalid-feedback');
+         errorDivs.forEach(div => div.textContent = '');
+         const invalidInputs = addCustomerModalBody.querySelectorAll('.is-invalid');
+         invalidInputs.forEach(input => input.classList.remove('is-invalid'));
+    }
 
 
-      // --- Add Customer Modal Logic (Placeholder - We'll do this next) ---
-      addCustomerBtn.addEventListener('click', function() {
-          console.log("Add Customer button clicked");
-          // TODO: Open Bootstrap Modal and load the customer form via AJAX
-          alert("Add Customer Modal logic not implemented yet!");
-          // Example using Bootstrap 5 JS API (ensure Bootstrap JS is loaded)
-          // const addCustomerModal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
-          // // Load form content into modal body (e.g., using fetch)
-          // // fetch('/customers/add/fragment/') // Need a view returning only the form HTML
-          // //   .then(response => response.text())
-          // //   .then(html => {
-          // //      document.getElementById('add-customer-modal-body').innerHTML = html;
-          // //      addCustomerModal.show();
-          // //      // Add event listener for form submission inside the modal
-          // //   });
-      });
+    // --- Product Search Logic (Placeholder) ---
+    // TODO: Add similar logic for product search input, results, and selection
 
 
-      // --- Placeholder for Product Search Logic ---
-      console.log("Product search JS to be added");
+    // --- Order Items Logic (Placeholder) ---
+    // TODO: Add logic to add product rows to the table, handle quantity changes, row deletion
 
 
-      // --- Placeholder for Order Calculation/Submission Logic ---
-      document.getElementById('create-order-btn').addEventListener('click', function() {
-          console.log("Create Order button clicked!");
-          // TODO: Gather all data (customer, items, payment, etc.)
-          // TODO: Perform final validation
-          // TODO: Send data to backend via fetch POST
-          alert("Order creation logic not implemented yet!");
-      });
+    // --- Order Summary Calculation Logic (Placeholder) ---
+    // TODO: Add logic to calculate Subtotal, handle Discount, calculate Total
 
-  }); // End DOMContentLoaded
+
+    // --- Payment Method Logic (Placeholder) ---
+    // TODO: Load payment methods, handle 'Add New' modal for payment methods
+
+
+    // --- Final Order Submission Logic ---
+    document.getElementById('create-order-btn').addEventListener('click', function() {
+        console.log("Create Order button clicked!");
+        // TODO: 1. Gather data: customerId, items array [{product_id, quantity, price}], discount, payment_method_id, amount_paid, statuses etc.
+        // TODO: 2. Client-side validation (e.g., at least one item selected?)
+        // TODO: 3. Send data via fetch POST to a new backend endpoint (e.g., /orders/api/create/)
+        // TODO: 4. Handle success (redirect/show message) or error response from backend
+        alert("Order creation logic not implemented yet!");
+    });
+
+
+}); // End DOMContentLoaded
 </script>
 {% endblock %}

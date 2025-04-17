@@ -29,8 +29,11 @@
   {% endif %}
 {% endfor %}
 
-<div class="mt-3 d-flex justify-content-end">
-    <button type="submit" class="btn btn-primary">Save Customer</button>
+<div class="mt-4 pt-3 border-top d-flex justify-content-end"> {# Add spacing and a top border #}
+  {# Cancel button - Uses Bootstrap's modal dismiss attribute #}
+  <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+  {# Save button - Triggers the form submission #}
+  <button type="submit" class="btn btn-primary">Save Customer</button>
 </div>
-{# --- END SUBMIT BUTTON --- #}
+{# --- END BUTTONS SECTION --- #}
 </form>
