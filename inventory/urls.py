@@ -13,4 +13,5 @@ urlpatterns = [
     path('low-stock/', views.low_stock_list_view, name='low_stock_list'), # <-- ADD THIS LINE
     path('product/add/', views.product_add_view, name='product_add'), 
     path('product/<int:pk>/edit/', views.product_edit_view, name='product_edit'),
+    path('product/<int:pk>/delete/', views.product_delete_view, name='product_delete'), 
 ]

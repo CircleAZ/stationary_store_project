@@ -1,0 +1,42 @@
+{# inventory/templates/inventory/product_confirm_delete.html #}
+
+{% extends "base.html" %}
+
+{% block title %}Confirm Delete Product{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card border-danger shadow-sm">
+        <div class="card-header bg-danger text-white">
+          <h2 class="mb-0">Confirm Deletion</h2>
+        </div>
+        <div class="card-body">
+          <p class="lead">Are you sure you want to delete the product:</p>
+          <h4 class="text-danger">{{ product.name }}</h4>
+          <p>
+            {% if product.category %}Category: {{ product.category.name }}<br>{% endif %}
+            Stock: {{ product.stock_quantity }} | Price: ₹{{ product.selling_price }}
+          </p>
+
+          <p class="text-danger fw-bold">This action cannot be undone.</p>
+
+          {# Form that submits the confirmation via POST #}
+          <form method="post">
+            {% csrf_token %} {# Security token #}
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                {# Cancel button goes back to product detail #}
+                <a href="{% url 'inventory:product_detail' pk=product.pk %}" class="btn btn-secondary">
+                  Cancel
+                </a>
+                <button type="submit" class="btn btn-danger">
+                  Yes, Delete Product
+                </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

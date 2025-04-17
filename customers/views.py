@@ -1,9 +1,11 @@
 # customers/views.py
-
-from django.shortcuts import render, get_object_or_404, redirect # Add redirect
-from django.contrib import messages # Import messages
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from .models import Customer
-from .forms import CustomerForm # <-- Import the new form
+from .forms import CustomerForm
+from django.template.loader import render_to_string # Import render_to_string
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse # Import response types
+from django.contrib.auth.decorators import login_required # Keep using login_required
 
 # Existing customer_list_view function...
 def customer_list_view(request):
@@ -117,3 +119,48 @@ def customer_delete_view(request, pk):
         }
         # Render the confirmation template (we'll create this next)
         return render(request, 'customers/customer_confirm_delete.html', context)
+
+
+# --- NEW View to render only the customer form HTML ---
+@login_required
+def customer_add_form_htmx(request): # Renamed slightly to indicate purpose/potential HTMX use
+    """ Renders the CustomerForm as an HTML fragment. """
+    form = CustomerForm()
+    # Render form using a minimal template (or just the form itself)
+    # Option 1: Use render_to_string with the existing form template
+    # html = render_to_string('customers/customer_form_fields_partial.html', {'form': form}, request=request)
+    # return HttpResponse(html)
+
+    # Option 2: (Simpler for now) Render the form directly using Django's built-in methods
+    context = {'form': form, 'is_modal': True} # Pass a flag if template needs to know it's in modal
+    # Use the existing template but maybe add logic inside it based on 'is_modal' if needed
+    # Or create a specific smaller template just for the fields
+    return render(request, 'customers/partials/customer_form_fields.html', context)
+
+
+# --- NEW View to handle modal form submission ---
+@login_required
+def customer_add_modal_api(request):
+    """ Handles POST submission from the Add Customer modal. """
+    if request.method == 'POST':
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            try:
+                new_customer = form.save()
+                # Return success response with new customer details
+                return JsonResponse({
+                    'success': True,
+                    'customer_id': new_customer.pk,
+                    'customer_text': f"{new_customer.full_name} ({new_customer.full_phone_number or new_customer.email or 'No contact'})"
+                })
+            except Exception as e:
+                # Catch potential database errors during save
+                 return JsonResponse({'success': False, 'errors': {'__all__': f'Error saving customer: {str(e)}'}}, status=500)
+        else:
+            # Form is invalid, return errors as JSON
+            # Convert form.errors dictionary to a JSON-friendly format if needed
+            # For simplicity, just send the errors dict directly for now
+            return JsonResponse({'success': False, 'errors': form.errors}, status=400) # Bad Request status
+    else:
+        # Method not allowed
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)

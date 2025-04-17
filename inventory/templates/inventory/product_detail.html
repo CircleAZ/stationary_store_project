@@ -41,7 +41,9 @@
              <i class="fas fa-edit"></i> Edit Product {# Optional: Font Awesome icon #}
         </a>
         {# --- END EDIT BUTTON --- #}
-        {# Add Delete button here later #}
+        <a href="{% url 'inventory:product_delete' pk=product.pk %}" class="btn btn-danger">
+            <i class="fas fa-trash-alt"></i> Delete Product
+        </a>
      </div>
   </div>
 {% endblock %}

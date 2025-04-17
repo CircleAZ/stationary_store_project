@@ -123,3 +123,25 @@ def product_edit_view(request, pk):
     }
     # Render the *same* template used for adding
     return render(request, 'inventory/product_form.html', context)
+
+def product_delete_view(request, pk):
+    """
+    Handles displaying the confirmation page for deleting a product (GET)
+    and performing the actual deletion upon confirmation (POST).
+    """
+    product = get_object_or_404(Product, pk=pk)
+
+    if request.method == 'POST':
+        # Confirmation form submitted
+        product_name = product.name # Get name for message before deleting
+        product.delete()
+        messages.success(request, f"Product '{product_name}' deleted successfully.")
+        # Redirect back to the main product list
+        return redirect('inventory:product_list')
+    else:
+        # Show confirmation page
+        context = {
+            'product': product, # Pass product to template
+        }
+        # Use a generic confirmation template name or a specific one
+        return render(request, 'inventory/product_confirm_delete.html', context)

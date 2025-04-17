@@ -64,9 +64,9 @@
                     <h6 class="card-subtitle mb-2 text-muted">{{ product.manufacturer }}</h6>
                   {% endif %}
                   {# --- Display category IN card (Optional, maybe remove if obvious from heading/filter) --- #}
-                  {# {% if product.category %}
+                  {% if product.category %}
                   <p class="card-text"><small class="text-muted">Category: {{ product.category.name }}</small></p>
-                  {% endif %} #}
+                  {% endif %} 
                   {# --- END Category in card --- #}
                   {% if product.description %}
                     <p class="card-text flex-grow-1">{{ product.description }}</p> {# Use flex-grow-1 on description #}

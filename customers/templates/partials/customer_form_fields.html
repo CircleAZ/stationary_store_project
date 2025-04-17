@@ -1,0 +1,36 @@
+{# customers/templates/partials/customer_form_fields.html #}
+<form method="post" novalidate>
+
+{% csrf_token %} {# Still need CSRF token for the form submission #}
+
+{# General error placeholder (for non-field errors or save errors) #}
+<div id="customer-modal-non-field-errors" class="text-danger mb-2"></div>
+
+{# Render Non-Model and Related Fields Explicitly #}
+<label class="form-label">Phone Number</label>
+<div class="input-group mb-3">
+    <span class="input-group-text">Code</span>
+    {{ form.country_code }}
+    {{ form.phone_number }}
+</div>
+<div id="error_id_country_code" class="invalid-feedback d-block"></div> {# Placeholder for errors #}
+<div id="error_id_phone_number" class="invalid-feedback d-block"></div> {# Placeholder for errors #}
+
+{# Render Remaining Fields using Manual Loop #}
+{% for field in form %}
+  {% if field.name != 'country_code' and field.name != 'phone_number' %}
+    <div class="mb-3">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
+      {# Placeholder for field errors - JS will populate this #}
+      <div id="error_{{ field.auto_id }}" class="invalid-feedback d-block"></div>
+    </div>
+  {% endif %}
+{% endfor %}
+
+<div class="mt-3 d-flex justify-content-end">
+    <button type="submit" class="btn btn-primary">Save Customer</button>
+</div>
+{# --- END SUBMIT BUTTON --- #}
+</form>

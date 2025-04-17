@@ -1,0 +1,431 @@
+{# orders/templates/orders/order_create.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Create Order" }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ page_title|default:"Create Order" }}</h1>
+
+{# Use Bootstrap Grid for layout #}
+<div class="row g-5"> {# Gutters for spacing #}
+
+  {# Left Column: Customer & Items #}
+  <div class="col-md-7 col-lg-8">
+    <h4 class="mb-3">Customer & Items</h4>
+
+    {# 1. Customer Selection (Placeholder) #}
+    <div class="mb-4 p-3 border rounded">
+        <h5>1. Select Customer</h5>
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search Customer (Name, Phone...)" id="customer-search-input">
+            <button class="btn btn-outline-secondary" type="button" id="add-customer-btn">Add New</button>
+        </div>
+        <div id="customer-search-results" class="list-group mt-2" style="max-height: 150px; overflow-y: auto;">
+            <!-- Search results will appear here -->
+        </div>
+        <div id="selected-customer-info" class="mt-2 text-success fw-bold">
+            <!-- Selected customer details -->
+        </div>
+        <input type="hidden" id="selected-customer-id" name="customer_id"> {# Hidden field to store ID #}
+    </div>
+
+    {# 2. Order Items (Placeholder) #}
+    <div class="mb-4 p-3 border rounded">
+        <h5>2. Add Products</h5>
+        <div class="input-group mb-3">
+             <input type="text" class="form-control" placeholder="Search Product (Name, Category...)" id="product-search-input">
+        </div>
+         <div id="product-search-results" class="list-group mb-3" style="max-height: 150px; overflow-y: auto;">
+            <!-- Product Search results will appear here -->
+        </div>
+
+        <h6>Current Items</h6>
+        <div class="table-responsive">
+            <table class="table" id="order-items-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th style="width: 15%;">Price</th>
+                        <th style="width: 15%;">Quantity</th>
+                        <th style="width: 15%;">Total</th>
+                        <th style="width: 5%;"></th> {# Delete button col #}
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Order items will be added here by JavaScript #}
+                    <tr id="no-items-row">
+                        <td colspan="5" class="text-center text-muted">No items added yet.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+  </div>{# End Left Column #}
+
+  {# Right Column: Summary & Payment #}
+  <div class="col-md-5 col-lg-4 order-md-last"> {# order-md-last pushes this right on medium+ screens #}
+    <h4 class="d-flex justify-content-between align-items-center mb-3">
+      <span class="text-primary">Order Summary</span>
+      {# Maybe item count badge later #}
+      {# <span class="badge bg-primary rounded-pill">3</span> #}
+    </h4>
+    <ul class="list-group mb-3">
+      <li class="list-group-item d-flex justify-content-between lh-sm">
+        <div>
+          <h6 class="my-0">Subtotal</h6>
+        </div>
+        <span class="text-muted" id="summary-subtotal">₹0.00</span>
+      </li>
+      <li class="list-group-item d-flex justify-content-between lh-sm">
+        <div>
+          <h6 class="my-0">Discount</h6>
+        </div>
+         {# Discount Input #}
+         <span class="text-muted">
+            <input type="number" class="form-control form-control-sm text-end" id="discount-input" value="0" min="0" step="0.01" style="width: 80px;">
+         </span>
+      </li>
+      {% comment %} TAX LINE placeholder - add later if needed {% endcomment %}
+      <li class="list-group-item d-flex justify-content-between lh-sm">
+        <div><h6 class="my-0">Tax</h6></div><span class="text-muted" id="summary-tax">₹0.00</span>
+      </li>
+      
+      <li class="list-group-item d-flex justify-content-between">
+        <span>Total (INR)</span>
+        <strong id="summary-total">₹0.00</strong>
+      </li>
+    </ul>
+
+    {# Payment Section (Placeholder) #}
+    <div class="p-3 border rounded">
+        <h5 class="mb-3">Payment</h5>
+         <div class="mb-3">
+            <label for="payment-method" class="form-label">Payment Method</label>
+             <div class="input-group">
+                <select class="form-select" id="payment-method">
+                    <option value="" selected>-- Select Method --</option>
+                    {# Options will be loaded later #}
+                </select>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="add-payment-method-btn">Add New</button>
+            </div>
+        </div>
+         <div class="mb-3">
+            <label for="amount-paid" class="form-label">Amount Paid</label>
+            <input type="number" class="form-control" id="amount-paid" value="0.00" min="0" step="0.01">
+        </div>
+        <div class="mb-3">
+             <label for="payment-status" class="form-label">Payment Status</label>
+             <select class="form-select" id="payment-status">
+                 <option value="Pending">Pending</option>
+                 <option value="Partial">Partial</option>
+                 <option value="Paid">Paid</option>
+             </select>
+        </div>
+         <div class="mb-3">
+             <label for="payment-reference" class="form-label">Payment Reference</label>
+             <input type="text" class="form-control form-control-sm" id="payment-reference" placeholder="(Optional) e.g., UPI ID, Txn No.">
+        </div>
+         <hr>
+         <div class="mb-3">
+             <label for="order-status" class="form-label">Order Status</label>
+             <select class="form-select" id="order-status">
+                 <option value="Pending" selected>Pending</option>
+                 <option value="Processing">Processing</option>
+                 <option value="Completed">Completed</option>
+             </select>
+         </div>
+
+         <button class="w-100 btn btn-success btn-lg" type="button" id="create-order-btn">Create Order</button>
+
+    </div>
+
+  </div>{# End Right Column #}
+</div> {# End Row #}
+
+{# Bootstrap Modals (Hidden by default) #}
+{# Add Customer Modal Placeholder #}
+<div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addCustomerModalLabel">Add New Customer</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="add-customer-modal-body">
+        <!-- Customer form will be loaded here -->
+         Loading form...
+      </div>
+      {# Footer might have save button handled by loaded form/JS #}
+    </div>
+  </div>
+</div>
+
+{# Add Payment Method Modal Placeholder #}
+<div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-labelledby="addPaymentMethodModalLabel" aria-hidden="true">
+   <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addPaymentMethodModalLabel">Add New Payment Method</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+       <div class="modal-body" id="add-payment-method-modal-body">
+            <label for="new-payment-method-name" class="form-label">Method Name:</label>
+            <input type="text" id="new-payment-method-name" class="form-control mb-2">
+            <button type="button" class="btn btn-primary" id="save-new-payment-method-btn">Save Method</button>
+            <div id="payment-method-modal-error" class="text-danger mt-2"></div>
+       </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Wait for the DOM to be fully loaded
+  document.addEventListener('DOMContentLoaded', function() {
+
+      // --- Customer Search Elements ---
+      const customerSearchInput = document.getElementById('customer-search-input');
+      const customerSearchResultsDiv = document.getElementById('customer-search-results');
+      const selectedCustomerInfoDiv = document.getElementById('selected-customer-info');
+      const selectedCustomerIdInput = document.getElementById('selected-customer-id');
+      const addCustomerBtn = document.getElementById('add-customer-btn'); // Get add button
+
+      const addCustomerModalEl = document.getElementById('addCustomerModal');
+      const addCustomerModalBody = document.getElementById('add-customer-modal-body');
+      // --- Event Listener for Customer Search Input ---
+      
+      
+      let addCustomerModalInstance = null;
+      if (addCustomerModalEl) {
+           addCustomerModalInstance = new bootstrap.Modal(addCustomerModalEl);
+      }
+  
+      // --- Listener for "Add New" Customer Button ---
+      addCustomerBtn.addEventListener('click', function() {
+          console.log("Add Customer button clicked");
+          if (!addCustomerModalInstance) return; // Safety check
+  
+          // Fetch the form HTML from the backend
+          fetch("{% url 'customers:customer_add_form_htmx' %}") // Use Django url tag
+              .then(response => response.text())
+              .then(html => {
+                  addCustomerModalBody.innerHTML = html; // Load form into modal body
+                  addCustomerModalInstance.show(); // Show the modal
+                  // Attach submit listener AFTER form is loaded into modal
+                  attachModalFormSubmitListener();
+              })
+              .catch(error => {
+                  console.error("Error fetching customer form:", error);
+                  addCustomerModalBody.innerHTML = '<p class="text-danger">Could not load customer form. Please try again.</p>';
+                  addCustomerModalInstance.show(); // Show modal even with error
+              });
+      });
+  
+      // --- Function to Attach Listener to Modal Form Submission ---
+      function attachModalFormSubmitListener() {
+          const modalForm = addCustomerModalBody.querySelector('form'); // Find the form inside the modal
+          if (modalForm) {
+              modalForm.addEventListener('submit', function(e) {
+                  e.preventDefault(); // Prevent default browser form submission
+                  console.log("Modal form submitted");
+                  clearModalErrors(); // Clear previous errors
+  
+                  const formData = new FormData(modalForm); // Get form data
+  
+                  // Send data to the modal API endpoint via fetch POST
+                  fetch("{% url 'customers:customer_add_modal_api' %}", {
+                      method: 'POST',
+                      body: formData,
+                      headers: {
+                          // Django needs CSRF token for POST. Get it from the form's hidden input.
+                          'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                      }
+                  })
+                  .then(response => response.json()) // Expect JSON response
+                  .then(data => {
+                      if (data.success) {
+                          console.log("Customer added successfully:", data);
+                          addCustomerModalInstance.hide(); // Hide modal on success
+                          selectCustomer(data.customer_id, data.customer_text); // Select the newly added customer
+                          addCustomerModalBody.innerHTML = 'Loading form...'; // Reset modal body
+                      } else {
+                          console.error("Form validation failed:", data.errors);
+                          // Display errors within the modal
+                          displayModalErrors(data.errors);
+                      }
+                  })
+                  .catch(error => {
+                      console.error('Error submitting modal form:', error);
+                      // Display a generic error in the modal
+                      document.getElementById('customer-modal-non-field-errors').textContent = 'An unexpected error occurred. Please try again.';
+                  });
+              });
+          } else {
+               console.error("Could not find form inside modal body");
+          }
+      }
+  
+      // --- Function to Display Errors in Modal ---
+      function displayModalErrors(errors) {
+          // Clear previous errors first (redundant if clearModalErrors called, but safe)
+          clearModalErrors();
+          // Display non-field errors (e.g., __all__ or save errors)
+          if (errors.__all__) {
+               const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
+               if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = errors.__all__.join('; '); // Join if it's a list
+          }
+          // Display field-specific errors
+          for (const fieldName in errors) {
+              if (fieldName !== '__all__') {
+                  const errorDiv = document.getElementById(`error_id_${fieldName}`); // Match ID from partial template
+                  if (errorDiv) {
+                      errorDiv.textContent = errors[fieldName].join('; '); // Join multiple errors for one field
+                  }
+                  // Add 'is-invalid' class to the input field itself (optional styling)
+                  const inputField = addCustomerModalBody.querySelector(`[name="${fieldName}"]`);
+                  if (inputField) {
+                      inputField.classList.add('is-invalid');
+                  }
+              }
+          }
+      }
+  
+      // --- Function to Clear Errors in Modal ---
+      function clearModalErrors() {
+           // Clear general errors
+           const nonFieldErrorDiv = document.getElementById('customer-modal-non-field-errors');
+           if(nonFieldErrorDiv) nonFieldErrorDiv.textContent = '';
+           // Clear field errors and remove 'is-invalid' class
+           const errorDivs = addCustomerModalBody.querySelectorAll('.invalid-feedback');
+           errorDivs.forEach(div => div.textContent = '');
+           const invalidInputs = addCustomerModalBody.querySelectorAll('.is-invalid');
+           invalidInputs.forEach(input => input.classList.remove('is-invalid'));
+      }
+  
+  
+      // --- Existing Placeholders for Product Search / Order Submit ---
+      // ... (keep this code) ...
+  
+ // End DOMContentLoaded
+  
+      
+      let customerSearchTimeout; // To debounce requests
+      customerSearchInput.addEventListener('input', function() {
+          // Clear previous timeout
+          clearTimeout(customerSearchTimeout);
+
+          const query = this.value.trim(); // Get input value, remove whitespace
+
+          // Clear previous results immediately
+          customerSearchResultsDiv.innerHTML = '';
+          // Don't search if query is too short
+          if (query.length < 2) {
+               customerSearchResultsDiv.style.display = 'none'; // Hide results container
+               return;
+          }
+
+          // Debounce: Wait 300ms after user stops typing before sending request
+          customerSearchTimeout = setTimeout(() => {
+              console.log('Searching customers for:', query);
+              // Fetch customer data from our API endpoint
+              fetch(`/api/customers/search/?q=${encodeURIComponent(query)}`) // Use encodeURIComponent for safety
+                  .then(response => response.json()) // Parse the JSON response
+                  .then(data => {
+                      displayCustomerResults(data.results); // Call function to display results
+                  })
+                  .catch(error => {
+                      console.error('Error fetching customer search results:', error);
+                       customerSearchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Error loading results.</div>';
+                       customerSearchResultsDiv.style.display = 'block';
+                  });
+          }, 300); // 300ms delay
+      });
+
+      // --- Function to Display Customer Search Results ---
+      function displayCustomerResults(customers) {
+          customerSearchResultsDiv.innerHTML = ''; // Clear previous results
+
+          if (customers && customers.length > 0) {
+              customers.forEach(customer => {
+                  // Create a clickable item for each customer
+                  const item = document.createElement('a');
+                  item.href = '#'; // Prevent page jump
+                  item.classList.add('list-group-item', 'list-group-item-action', 'customer-result-item');
+                  item.textContent = customer.text; // Display name/contact info
+                  item.dataset.customerId = customer.id; // Store customer ID in data attribute
+
+                  // --- Event Listener for Clicking a Result ---
+                  item.addEventListener('click', function(e) {
+                      e.preventDefault(); // Prevent default anchor behavior
+                      selectCustomer(customer.id, customer.text);
+                  });
+
+                  customerSearchResultsDiv.appendChild(item);
+              });
+              customerSearchResultsDiv.style.display = 'block'; // Show results container
+          } else {
+              // Show 'No results' message
+              customerSearchResultsDiv.innerHTML = '<div class="list-group-item text-muted">No customers found.</div>';
+              customerSearchResultsDiv.style.display = 'block';
+          }
+      }
+
+      // --- Function to Handle Customer Selection ---
+      function selectCustomer(customerId, customerText) {
+          console.log('Selected customer:', customerId, customerText);
+          // Update the display area
+          selectedCustomerInfoDiv.textContent = `Selected: ${customerText}`;
+          // Store the ID in the hidden input field
+          selectedCustomerIdInput.value = customerId;
+          // Clear search input and hide results
+          customerSearchInput.value = '';
+          customerSearchResultsDiv.innerHTML = '';
+          customerSearchResultsDiv.style.display = 'none';
+      }
+
+      // --- Clear Selection/Deselect Customer (Optional) ---
+      // You could add a small 'x' button next to selectedCustomerInfoDiv
+      // that calls a function like this:
+      // function clearCustomerSelection() {
+      //     selectedCustomerInfoDiv.textContent = '';
+      //     selectedCustomerIdInput.value = '';
+      // }
+
+
+      // --- Add Customer Modal Logic (Placeholder - We'll do this next) ---
+      addCustomerBtn.addEventListener('click', function() {
+          console.log("Add Customer button clicked");
+          // TODO: Open Bootstrap Modal and load the customer form via AJAX
+          alert("Add Customer Modal logic not implemented yet!");
+          // Example using Bootstrap 5 JS API (ensure Bootstrap JS is loaded)
+          // const addCustomerModal = new bootstrap.Modal(document.getElementById('addCustomerModal'));
+          // // Load form content into modal body (e.g., using fetch)
+          // // fetch('/customers/add/fragment/') // Need a view returning only the form HTML
+          // //   .then(response => response.text())
+          // //   .then(html => {
+          // //      document.getElementById('add-customer-modal-body').innerHTML = html;
+          // //      addCustomerModal.show();
+          // //      // Add event listener for form submission inside the modal
+          // //   });
+      });
+
+
+      // --- Placeholder for Product Search Logic ---
+      console.log("Product search JS to be added");
+
+
+      // --- Placeholder for Order Calculation/Submission Logic ---
+      document.getElementById('create-order-btn').addEventListener('click', function() {
+          console.log("Create Order button clicked!");
+          // TODO: Gather all data (customer, items, payment, etc.)
+          // TODO: Perform final validation
+          // TODO: Send data to backend via fetch POST
+          alert("Order creation logic not implemented yet!");
+      });
+
+  }); // End DOMContentLoaded
+</script>
+{% endblock %}

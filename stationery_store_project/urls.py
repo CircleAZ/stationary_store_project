@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include # Make sure 'include' is imported
 
+from orders import views as order_views # Alias to avoid name clashes if needed
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     # Inventory URLs (existing)
@@ -25,5 +27,10 @@ urlpatterns = [
     # --- NEW: Include Customer URLs ---
     path('customers/', include('customers.urls')), # <-- ADD THIS LINE
 
-    # We'll add paths for other apps (orders, dashboard, reports, core) later
+    path('orders/', include('orders.urls')),
+
+    path('api/customers/search/', order_views.customer_search_api, name='api_customer_search'), # <-- ADD
+    path('api/products/search/', order_views.product_search_api, name='api_product_search'),
+
+    # We'll add paths for other apps (dashboard, reports, core) later
 ]
