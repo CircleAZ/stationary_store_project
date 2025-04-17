@@ -4,6 +4,9 @@
 {% block title %}{{ page_title|default:"Create Order" }}{% endblock %}
 
 {% block content %}
+
+{% csrf_token %}
+
 <h1 class="mb-4">{{ page_title|default:"Create Order" }}</h1>
 
 {# Use Bootstrap Grid for layout #}
@@ -103,9 +106,13 @@
          <div class="mb-3">
             <label for="payment-method" class="form-label">Payment Method</label>
              <div class="input-group">
-                <select class="form-select" id="payment-method">
+                <select class="form-select" id="payment-method" name="payment_method"> {# Added name attribute #}
                     <option value="" selected>-- Select Method --</option>
-                    {# Options will be loaded later #}
+                    {# --- Loop through payment methods passed from view --- #}
+                    {% for method in payment_methods %}
+                        <option value="{{ method.pk }}">{{ method.name }}</option> {# Use PK as value #}
+                    {% endfor %}
+                    {# --- End Loop --- #}
                 </select>
                 <button class="btn btn-outline-secondary btn-sm" type="button" id="add-payment-method-btn">Add New</button>
             </div>
@@ -368,11 +375,222 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // --- Product Search Logic (Placeholder) ---
-    // TODO: Add similar logic for product search input, results, and selection
+// --- Product Search Elements ---
+const productSearchInput = document.getElementById('product-search-input');
+const productSearchResultsDiv = document.getElementById('product-search-results');
+const orderItemsTableBody = document.getElementById('order-items-table').querySelector('tbody'); // Get table body
+const noItemsRow = document.getElementById('no-items-row'); // Row shown when table is empty
 
+// --- Event Listener for Product Search Input ---
+let productSearchTimeout; // To debounce requests
+productSearchInput.addEventListener('input', function() {
+    clearTimeout(productSearchTimeout);
+    const query = this.value.trim();
+
+    productSearchResultsDiv.innerHTML = ''; // Clear results
+    if (query.length < 2) { // Minimum query length
+        productSearchResultsDiv.style.display = 'none';
+        return;
+    }
+
+    // Debounce
+    productSearchTimeout = setTimeout(() => {
+        fetch(`/api/products/search/?q=${encodeURIComponent(query)}`)
+            .then(response => {
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                return response.json();
+            })
+            .then(data => {
+                displayProductResults(data.results); // Display results
+            })
+            .catch(error => {
+                console.error('Error fetching product search results:', error);
+                productSearchResultsDiv.innerHTML = '<div class="list-group-item text-danger">Error loading results.</div>';
+                productSearchResultsDiv.style.display = 'block';
+            });
+    }, 300);
+});
 
     // --- Order Items Logic (Placeholder) ---
-    // TODO: Add logic to add product rows to the table, handle quantity changes, row deletion
+// --- Function to Display Product Search Results ---
+function displayProductResults(products) {
+    productSearchResultsDiv.innerHTML = ''; // Clear previous
+    if (products && products.length > 0) {
+        products.forEach(product => {
+            const item = document.createElement('a');
+            item.href = '#';
+            item.classList.add('list-group-item', 'list-group-item-action', 'product-result-item');
+            // Display name, price, maybe stock
+            item.innerHTML = `
+                <div>${product.text}</div>
+                <small class="text-muted">Price: ₹${product.price} ${product.stock !== undefined ? '| Stock: ' + product.stock : ''}</small>
+            `;
+            // Store product data needed for adding to order
+            item.dataset.productId = product.id;
+            item.dataset.productName = product.text; // Use the display text
+            item.dataset.productPrice = product.price;
+
+            // --- Event Listener for Clicking a Product Result ---
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                addProductToOrder(
+                    this.dataset.productId,
+                    this.dataset.productName,
+                    this.dataset.productPrice
+                );
+                // Clear search and hide results after adding
+                productSearchInput.value = '';
+                productSearchResultsDiv.innerHTML = '';
+                productSearchResultsDiv.style.display = 'none';
+            });
+            productSearchResultsDiv.appendChild(item);
+        });
+        productSearchResultsDiv.style.display = 'block';
+    } else {
+        productSearchResultsDiv.innerHTML = '<div class="list-group-item text-muted">No products found.</div>';
+        productSearchResultsDiv.style.display = 'block';
+    }
+}
+
+// --- Function to Add Product Row to Order Table ---
+function addProductToOrder(productId, productName, productPrice) {
+    // Check if product already exists in the order
+    const existingRow = orderItemsTableBody.querySelector(`tr[data-product-id="${productId}"]`);
+
+    if (existingRow) {
+        // If exists, just increase quantity
+        const quantityInput = existingRow.querySelector('.item-quantity-input');
+        quantityInput.value = parseInt(quantityInput.value) + 1;
+        // Trigger change event manually to update line total and summary
+        quantityInput.dispatchEvent(new Event('change'));
+        console.log(`Increased quantity for product ID: ${productId}`);
+    } else {
+        // If new, add a new row
+        console.log(`Adding new product ID: ${productId}`);
+        // Remove the 'No items' row if it exists
+        if (noItemsRow) {
+            noItemsRow.remove();
+        }
+
+        const price = parseFloat(productPrice).toFixed(2); // Ensure 2 decimal places
+        const quantity = 1;
+        const lineTotal = (price * quantity).toFixed(2);
+
+        const newRow = document.createElement('tr');
+        newRow.dataset.productId = productId; // Store product ID on the row
+        newRow.dataset.price = price; // Store price on the row
+
+        newRow.innerHTML = `
+            <td>${productName}</td>
+            <td class="text-end">₹${price}</td>
+            <td>
+                <input type="number" class="form-control form-control-sm item-quantity-input" value="${quantity}" min="1" style="width: 70px;">
+            </td>
+            <td class="text-end item-line-total">₹${lineTotal}</td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm item-delete-btn" title="Remove Item">
+                    × {# HTML entity for 'x' #}
+                </button>
+            </td>
+        `;
+
+        orderItemsTableBody.appendChild(newRow);
+
+        // Add event listeners to the new row's input and delete button
+        attachItemRowListeners(newRow);
+
+        // Update summary totals
+        updateOrderSummary();
+    }
+}
+
+// --- Function to Attach Listeners to Quantity Input and Delete Button ---
+function attachItemRowListeners(row) {
+    const quantityInput = row.querySelector('.item-quantity-input');
+    const deleteButton = row.querySelector('.item-delete-btn');
+
+    // Listener for quantity changes
+    quantityInput.addEventListener('change', function() {
+         updateLineTotal(row); // Update the row's total
+         updateOrderSummary(); // Update the overall summary
+    });
+    // Also update on 'input' for more immediate feedback (optional)
+    quantityInput.addEventListener('input', function() {
+         updateLineTotal(row);
+         updateOrderSummary();
+    });
+
+
+    // Listener for delete button
+    deleteButton.addEventListener('click', function() {
+        if (confirm(`Remove "${row.cells[0].textContent}" from the order?`)) {
+            row.remove(); // Remove the row from the table
+            updateOrderSummary(); // Update the overall summary
+
+            // If table is now empty, add back the 'No items' row
+            if (orderItemsTableBody.rows.length === 0) {
+                orderItemsTableBody.appendChild(noItemsRow); // Re-add the placeholder row
+            }
+        }
+    });
+}
+
+// --- Function to Update a Single Row's Line Total ---
+function updateLineTotal(row) {
+    const quantityInput = row.querySelector('.item-quantity-input');
+    const lineTotalCell = row.querySelector('.item-line-total');
+    const price = parseFloat(row.dataset.price);
+    let quantity = parseInt(quantityInput.value);
+
+    // Basic validation for quantity
+    if (isNaN(quantity) || quantity < 1) {
+        quantity = 1; // Reset to 1 if invalid
+        quantityInput.value = 1;
+    }
+
+    const lineTotal = (price * quantity).toFixed(2);
+    lineTotalCell.textContent = `₹${lineTotal}`;
+}
+
+// --- Function to Update Order Summary (Subtotal, Discount, Total) ---
+const summarySubtotalEl = document.getElementById('summary-subtotal');
+const discountInput = document.getElementById('discount-input');
+const summaryTotalEl = document.getElementById('summary-total');
+
+function updateOrderSummary() {
+    let subtotal = 0;
+    const itemRows = orderItemsTableBody.querySelectorAll('tr[data-product-id]'); // Select only actual item rows
+
+    itemRows.forEach(row => {
+        const price = parseFloat(row.dataset.price);
+        const quantity = parseInt(row.querySelector('.item-quantity-input').value);
+        if (!isNaN(price) && !isNaN(quantity) && quantity > 0) {
+            subtotal += price * quantity;
+        }
+    });
+
+    let discount = parseFloat(discountInput.value);
+    if (isNaN(discount) || discount < 0) {
+        discount = 0; // Default discount to 0 if invalid
+        discountInput.value = 0;
+    }
+
+    // Ensure discount doesn't exceed subtotal
+    if (discount > subtotal) {
+        discount = subtotal;
+        discountInput.value = discount.toFixed(2);
+    }
+
+    const total = subtotal - discount;
+
+    summarySubtotalEl.textContent = `₹${subtotal.toFixed(2)}`;
+    // Discount input is already updated if needed
+    summaryTotalEl.textContent = `₹${total.toFixed(2)}`;
+}
+
+// --- Listener for Discount Input Changes ---
+discountInput.addEventListener('change', updateOrderSummary);
+discountInput.addEventListener('input', updateOrderSummary);
 
 
     // --- Order Summary Calculation Logic (Placeholder) ---
@@ -380,19 +598,171 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // --- Payment Method Logic (Placeholder) ---
-    // TODO: Load payment methods, handle 'Add New' modal for payment methods
+// --- Payment Method Elements & Logic ---
+const addPaymentMethodBtn = document.getElementById('add-payment-method-btn');
+const addPaymentMethodModalEl = document.getElementById('addPaymentMethodModal');
+const paymentMethodSelect = document.getElementById('payment-method');
+const newPaymentMethodNameInput = document.getElementById('new-payment-method-name');
+const saveNewPaymentMethodBtn = document.getElementById('save-new-payment-method-btn');
+const paymentMethodModalErrorDiv = document.getElementById('payment-method-modal-error');
 
+let addPaymentMethodModalInstance = null;
+if (addPaymentMethodModalEl) {
+    addPaymentMethodModalInstance = new bootstrap.Modal(addPaymentMethodModalEl);
+} else {
+    console.error("Add Payment Method Modal element not found!");
+}
+
+// Listener to open the Payment Method modal
+addPaymentMethodBtn.addEventListener('click', function() {
+    if (addPaymentMethodModalInstance) {
+        // Clear previous input/errors when opening
+        newPaymentMethodNameInput.value = '';
+        paymentMethodModalErrorDiv.textContent = '';
+        newPaymentMethodNameInput.classList.remove('is-invalid');
+        addPaymentMethodModalInstance.show();
+    }
+});
+
+// Listener to save the new Payment Method from the modal
+saveNewPaymentMethodBtn.addEventListener('click', function() {
+    const newName = newPaymentMethodNameInput.value.trim();
+    paymentMethodModalErrorDiv.textContent = ''; // Clear previous error
+    newPaymentMethodNameInput.classList.remove('is-invalid');
+
+    if (!newName) {
+        paymentMethodModalErrorDiv.textContent = 'Please enter a method name.';
+        newPaymentMethodNameInput.classList.add('is-invalid');
+        return;
+    }
+
+    // Prepare data for POST request (simple key-value)
+    const formData = new FormData();
+    formData.append('name', newName);
+    // Get CSRF token - reusing the one from the customer modal if available,
+    // otherwise need to ensure one is present on the main page or passed differently.
+    // A hidden input on the main page form is often simplest.
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+     if (!csrfToken) {
+         console.error("CSRF Token not found for payment method add!");
+         paymentMethodModalErrorDiv.textContent = 'Security token missing. Cannot save.';
+         return;
+     }
+     formData.append('csrfmiddlewaretoken', csrfToken); // Add CSRF token
+
+    // Send data to API
+    fetch("{% url 'api_payment_method_add' %}", {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': csrfToken } // Also add as header
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add new option to the main dropdown
+            const newOption = new Option(data.method_name, data.method_id, false, true); // Text, Value, DefaultSelected, Selected
+            paymentMethodSelect.add(newOption);
+            // Select the newly added option
+            paymentMethodSelect.value = data.method_id;
+            addPaymentMethodModalInstance.hide(); // Close modal
+        } else {
+            // Display error inside the modal
+            paymentMethodModalErrorDiv.textContent = data.error || 'An unknown error occurred.';
+            newPaymentMethodNameInput.classList.add('is-invalid');
+        }
+    })
+    .catch(error => {
+        console.error("Error saving payment method:", error);
+        paymentMethodModalErrorDiv.textContent = 'An unexpected error occurred.';
+    });
+});
 
     // --- Final Order Submission Logic ---
+    // --- Final Order Submission Logic ---
     document.getElementById('create-order-btn').addEventListener('click', function() {
-        console.log("Create Order button clicked!");
-        // TODO: 1. Gather data: customerId, items array [{product_id, quantity, price}], discount, payment_method_id, amount_paid, statuses etc.
-        // TODO: 2. Client-side validation (e.g., at least one item selected?)
-        // TODO: 3. Send data via fetch POST to a new backend endpoint (e.g., /orders/api/create/)
-        // TODO: 4. Handle success (redirect/show message) or error response from backend
-        alert("Order creation logic not implemented yet!");
-    });
+        console.log("Attempting to create order...");
+        this.disabled = true; // Disable button to prevent double clicks
+        this.textContent = 'Processing...';
 
+        // --- 1. Gather Data ---
+        const customerId = selectedCustomerIdInput.value || null; // Get selected customer ID (or null)
+        const orderItems = [];
+        const itemRows = orderItemsTableBody.querySelectorAll('tr[data-product-id]');
+        itemRows.forEach(row => {
+            orderItems.push({
+                product_id: row.dataset.productId,
+                quantity: parseInt(row.querySelector('.item-quantity-input').value),
+                price: row.dataset.price // Send the price snapshot stored on the row
+            });
+        });
+
+        const discount = discountInput.value;
+        const paymentMethodId = paymentMethodSelect.value;
+        const amountPaid = document.getElementById('amount-paid').value;
+        const paymentStatus = document.getElementById('payment-status').value;
+        const orderStatus = document.getElementById('order-status').value;
+        const paymentReference = document.getElementById('payment-reference').value;
+
+        // --- 2. Client-side Validation (Basic) ---
+        if (orderItems.length === 0) {
+            alert("Cannot create an empty order. Please add products.");
+            this.disabled = false; // Re-enable button
+            this.textContent = 'Create Order';
+            return;
+        }
+        if (!paymentMethodId) {
+             alert("Please select a payment method.");
+             this.disabled = false; this.textContent = 'Create Order'; return;
+        }
+        // Add more checks if needed (e.g., amount paid format?)
+
+        // --- 3. Prepare JSON Payload ---
+        const orderData = {
+            customer_id: customerId,
+            items: orderItems,
+            discount: discount,
+            payment_method_id: paymentMethodId,
+            amount_paid: amountPaid,
+            payment_status: paymentStatus,
+            order_status: orderStatus,
+            payment_reference: paymentReference
+        };
+
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        // --- 4. Send data via fetch POST ---
+        fetch("{% url 'api_order_create' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json', // We're sending JSON
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(orderData) // Convert JS object to JSON string
+        })
+        .then(response => response.json()) // Expect JSON response
+        .then(data => {
+            if (data.success) {
+                alert(data.message || "Order created successfully!");
+                // Redirect or clear the form
+                // For now, let's just clear the form partially
+                console.log("Order Created:", data.order_id);
+                window.location.reload(); // Simple reload for now
+                // Or redirect: window.location.href = data.redirect_url; (if redirect_url is sent back)
+            } else {
+                console.error("Order creation failed:", data.error);
+                alert(`Error creating order: ${data.error}`);
+                this.disabled = false; // Re-enable button on error
+                this.textContent = 'Create Order';
+            }
+        })
+        .catch(error => {
+            console.error('Network/Fetch Error creating order:', error);
+            alert('An unexpected network error occurred. Please try again.');
+            this.disabled = false; // Re-enable button on error
+            this.textContent = 'Create Order';
+        });
+
+    }); // End create-order-btn listener
 
 }); // End DOMContentLoaded
 </script>

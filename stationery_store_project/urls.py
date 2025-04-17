@@ -25,12 +25,19 @@ urlpatterns = [
     path('inventory/', include('inventory.urls')),
 
     # --- NEW: Include Customer URLs ---
-    path('customers/', include('customers.urls')), # <-- ADD THIS LINE
+    path('customers/', include('customers.urls')), 
 
     path('orders/', include('orders.urls')),
 
-    path('api/customers/search/', order_views.customer_search_api, name='api_customer_search'), # <-- ADD
+    path('api/customers/search/', order_views.customer_search_api, name='api_customer_search'), 
     path('api/products/search/', order_views.product_search_api, name='api_product_search'),
+
+    # --- ADD Payment Method API URL ---
+    path('api/payment-methods/add/', order_views.payment_method_add_modal_api, name='api_payment_method_add'), 
+    # --- END API Endpoints ---
+
+    # --- ADD Order Create API URL ---
+    path('api/orders/create/', order_views.order_create_api, name='api_order_create'),
 
     # We'll add paths for other apps (dashboard, reports, core) later
 ]
