@@ -81,11 +81,9 @@
         <span class="text-muted" id="summary-subtotal">₹0.00</span>
       </li>
       <li class="list-group-item d-flex justify-content-between lh-sm">
-        <div>
-          <h6 class="my-0">Discount</h6>
-        </div>
-         {# Discount Input #}
+        <div><h6 class="my-0">Discount</h6></div>
          <span class="text-muted">
+            {# --- Ensure id="discount-input" --- #}
             <input type="number" class="form-control form-control-sm text-end" id="discount-input" value="0" min="0" step="0.01" style="width: 80px;">
          </span>
       </li>
@@ -118,32 +116,44 @@
             </div>
         </div>
          <div class="mb-3">
-            <label for="amount-paid" class="form-label">Amount Paid</label>
-            <input type="number" class="form-control" id="amount-paid" value="0.00" min="0" step="0.01">
+            <label for="initial-payment" class="form-label">Initial Payment</label>
+            <input type="number" class="form-control" id="initial-payment" value="0.00" min="0" step="0.01">
         </div>
+
         <div class="mb-3">
-             <label for="payment-status" class="form-label">Payment Status</label>
-             <select class="form-select" id="payment-status">
-                 <option value="Pending">Pending</option>
-                 <option value="Partial">Partial</option>
-                 <option value="Paid">Paid</option>
-             </select>
+            <label class="form-label">Amount Due</label>
+            <input type="text" class="form-control" id="amount-due-display" value="₹0.00" readonly disabled> {# Readonly display #}
         </div>
-         <div class="mb-3">
-             <label for="payment-reference" class="form-label">Payment Reference</label>
-             <input type="text" class="form-control form-control-sm" id="payment-reference" placeholder="(Optional) e.g., UPI ID, Txn No.">
-        </div>
+
+        <div class="mb-3">
+            <label for="payment-status" class="form-label">Payment Status</label>
+            <select class="form-select" id="payment-status" name="payment_status"> {# Added name #}
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+                <option value="Paid">Paid</option>
+            </select>
+       </div>
+       <div class="mb-3">
+        <label for="payment-reference" class="form-label">Payment Reference</label>
+        <input type="text" class="form-control form-control-sm" id="payment-reference" name="payment_reference" placeholder="(Optional) e.g., UPI ID, Txn No."> {# Added name #}
+   </div>
          <hr>
          <div class="mb-3">
-             <label for="order-status" class="form-label">Order Status</label>
-             <select class="form-select" id="order-status">
-                 <option value="Pending" selected>Pending</option>
-                 <option value="Processing">Processing</option>
-                 <option value="Completed">Completed</option>
-             </select>
-         </div>
+            <label for="order-status" class="form-label">Order Status</label>
+            <select class="form-select" id="order-status" name="order_status"> {# Added name #}
+                <option value="Pending" selected>Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Completed">Completed</option>
+            </select>
+        </div>
 
-         <button class="w-100 btn btn-success btn-lg" type="button" id="create-order-btn">Create Order</button>
+         {# --- ADD CANCEL BUTTON & MODIFY CREATE --- #}
+         <div class="d-grid gap-2">
+            <button class="btn btn-success btn-lg" type="button" id="create-order-btn">Create Order</button>
+            {# Cancel button - perhaps links back to order list or dashboard #}
+            <a href="{% url 'orders:order_list' %}" class="btn btn-outline-secondary" id="cancel-order-btn">Cancel Order</a>
+        </div>
+        {# --- END BUTTONS --- #}
 
     </div>
 
@@ -552,45 +562,77 @@ function updateLineTotal(row) {
     lineTotalCell.textContent = `₹${lineTotal}`;
 }
 
-// --- Function to Update Order Summary (Subtotal, Discount, Total) ---
+// --- Order Summary Elements ---
 const summarySubtotalEl = document.getElementById('summary-subtotal');
-const discountInput = document.getElementById('discount-input');
+const discountInput = document.getElementById('discount-input'); // <-- Make sure this line EXISTS and is correct
 const summaryTotalEl = document.getElementById('summary-total');
+const initialPaymentInput = document.getElementById('initial-payment');
+const amountDueDisplayEl = document.getElementById('amount-due-display');
+const paymentStatusSelect = document.getElementById('payment-status');
 
+// --- Function to Update Order Summary (MODIFIED) ---
+// --- Function to Update Order Summary (MODIFIED WITH LOGGING) ---
 function updateOrderSummary() {
-    let subtotal = 0;
-    const itemRows = orderItemsTableBody.querySelectorAll('tr[data-product-id]'); // Select only actual item rows
+    console.log("--- Running updateOrderSummary ---"); // 1. Check if function is called
 
-    itemRows.forEach(row => {
-        const price = parseFloat(row.dataset.price);
-        const quantity = parseInt(row.querySelector('.item-quantity-input').value);
+    let subtotal = 0;
+    // Select only rows that represent added products
+    const itemRows = orderItemsTableBody.querySelectorAll('tr[data-product-id]');
+    console.log(`Found ${itemRows.length} item rows to process.`); // 2. Check if rows are found
+
+    itemRows.forEach((row, index) => {
+        const productId = row.dataset.productId;
+        const priceStr = row.dataset.price;
+        const quantityInput = row.querySelector('.item-quantity-input');
+        const quantityStr = quantityInput ? quantityInput.value : '0'; // Get value from input
+
+        const price = parseFloat(priceStr);
+        const quantity = parseInt(quantityStr);
+
+        // 3. Log the values being used for calculation
+        console.log(`Row ${index}: ID=${productId}, PriceStr=${priceStr}, QtyStr=${quantityStr} -> Price=${price}, Qty=${quantity}`);
+
         if (!isNaN(price) && !isNaN(quantity) && quantity > 0) {
             subtotal += price * quantity;
+        } else {
+             console.warn(`Row ${index}: Skipped calculation due to invalid price or quantity.`);
         }
     });
 
+    console.log(`Calculated Subtotal: ${subtotal}`); // 4. Check final subtotal before discount
+
     let discount = parseFloat(discountInput.value);
-    if (isNaN(discount) || discount < 0) {
-        discount = 0; // Default discount to 0 if invalid
-        discountInput.value = 0;
-    }
-
-    // Ensure discount doesn't exceed subtotal
-    if (discount > subtotal) {
-        discount = subtotal;
-        discountInput.value = discount.toFixed(2);
-    }
-
+    // ... (rest of discount, total, amount due, payment status logic remains the same) ...
+    if (isNaN(discount) || discount < 0) { discount = 0; discountInput.value = 0; }
+    if (discount > subtotal) { discount = subtotal; discountInput.value = discount.toFixed(2); }
     const total = subtotal - discount;
+    let initialPayment = parseFloat(initialPaymentInput.value);
+    if (isNaN(initialPayment) || initialPayment < 0) { initialPayment = 0; initialPaymentInput.value = '0.00'; }
+    const amountDue = Math.max(0, total - initialPayment);
 
+     console.log(`Discount: ${discount}, Total: ${total}, InitialPayment: ${initialPayment}, AmountDue: ${amountDue}`); // 5. Check final values
+
+    // --- Update Display ---
     summarySubtotalEl.textContent = `₹${subtotal.toFixed(2)}`;
-    // Discount input is already updated if needed
     summaryTotalEl.textContent = `₹${total.toFixed(2)}`;
-}
+    amountDueDisplayEl.value = `₹${amountDue.toFixed(2)}`; // Update amount due display
 
-// --- Listener for Discount Input Changes ---
+    // --- Auto-update Payment Status ---
+    const tolerance = 0.01;
+    if (initialPayment >= total - tolerance) { paymentStatusSelect.value = 'Paid'; }
+    else if (initialPayment > 0) { paymentStatusSelect.value = 'Partial'; }
+    else { paymentStatusSelect.value = 'Pending'; }
+     console.log(`Set Payment Status: ${paymentStatusSelect.value}`); // 6. Check status set
+
+     console.log("--- Finished updateOrderSummary ---");
+
+} // End updateOrderSummary
+
+// --- Listeners for changes that affect summary ---
 discountInput.addEventListener('change', updateOrderSummary);
 discountInput.addEventListener('input', updateOrderSummary);
+initialPaymentInput.addEventListener('change', updateOrderSummary); // <-- ADD Listener for Initial Payment
+initialPaymentInput.addEventListener('input', updateOrderSummary);
 
 
     // --- Order Summary Calculation Logic (Placeholder) ---
@@ -685,23 +727,23 @@ saveNewPaymentMethodBtn.addEventListener('click', function() {
         this.textContent = 'Processing...';
 
         // --- 1. Gather Data ---
-        const customerId = selectedCustomerIdInput.value || null; // Get selected customer ID (or null)
-        const orderItems = [];
-        const itemRows = orderItemsTableBody.querySelectorAll('tr[data-product-id]');
-        itemRows.forEach(row => {
-            orderItems.push({
-                product_id: row.dataset.productId,
-                quantity: parseInt(row.querySelector('.item-quantity-input').value),
-                price: row.dataset.price // Send the price snapshot stored on the row
-            });
+        const customerId = selectedCustomerIdInput.value || null;
+    const orderItems = [];
+    const itemRows = orderItemsTableBody.querySelectorAll('tr[data-product-id]');
+    itemRows.forEach(row => {
+        orderItems.push({
+            product_id: row.dataset.productId,
+            quantity: parseInt(row.querySelector('.item-quantity-input').value),
+            price: row.dataset.price
         });
+    });
 
-        const discount = discountInput.value;
-        const paymentMethodId = paymentMethodSelect.value;
-        const amountPaid = document.getElementById('amount-paid').value;
-        const paymentStatus = document.getElementById('payment-status').value;
-        const orderStatus = document.getElementById('order-status').value;
-        const paymentReference = document.getElementById('payment-reference').value;
+    const discount = discountInput.value;
+    const paymentMethodId = paymentMethodSelect.value;
+    const initialPayment = document.getElementById('initial-payment').value; 
+    const paymentStatus = document.getElementById('payment-status').value;
+    const orderStatus = document.getElementById('order-status').value;
+    const paymentReference = document.getElementById('payment-reference').value;
 
         // --- 2. Client-side Validation (Basic) ---
         if (orderItems.length === 0) {
@@ -722,7 +764,7 @@ saveNewPaymentMethodBtn.addEventListener('click', function() {
             items: orderItems,
             discount: discount,
             payment_method_id: paymentMethodId,
-            amount_paid: amountPaid,
+            initial_payment: initialPayment, // Use the variable defined above
             payment_status: paymentStatus,
             order_status: orderStatus,
             payment_reference: paymentReference

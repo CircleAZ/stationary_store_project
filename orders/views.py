@@ -137,15 +137,18 @@ def order_create_api(request):
             # Decode JSON data sent from JavaScript
             data = json.loads(request.body)
 
-            # --- 1. Extract Data ---
-            customer_id = data.get('customer_id') # Can be None or empty string
-            items_data = data.get('items', []) # List of {product_id, quantity, price}
-            discount_str = str(data.get('discount', '0')) # Ensure string for Decimal conversion
+           # --- 1. Extract Data (MODIFIED) ---
+            customer_id = data.get('customer_id')
+            items_data = data.get('items', [])
+            discount_str = str(data.get('discount', '0'))
             payment_method_id = data.get('payment_method_id')
-            amount_paid_str = str(data.get('amount_paid', '0')) # Ensure string
-            payment_status = data.get('payment_status')
+            # --- Change 'amount_paid' key to match input name ---
+            initial_payment_str = str(data.get('initial_payment', '0')) # <-- Use 'initial_payment'
+            # --- End Change ---
+            payment_status = data.get('payment_status') # JS suggested this, but backend recalculates below
             order_status = data.get('order_status')
             payment_reference = data.get('payment_reference', '')
+
 
             # --- 2. Basic Validation ---
             if not items_data:
@@ -166,9 +169,11 @@ def order_create_api(request):
 
             try:
                 discount = Decimal(discount_str)
-                amount_paid = Decimal(amount_paid_str)
+                # --- Use initial_payment_str ---
+                initial_payment = Decimal(initial_payment_str) # <-- Convert initial payment
+                # --- End Change ---
             except InvalidOperation:
-                 return JsonResponse({'success': False, 'error': 'Invalid number format for discount or amount paid.'}, status=400)
+                 return JsonResponse({'success': False, 'error': 'Invalid number format for discount or initial payment.'}, status=400)
 
 
             # --- 4. Database Transaction ---
@@ -183,7 +188,7 @@ def order_create_api(request):
                     payment_reference=payment_reference,
                     # Totals will be calculated after items are added
                     # Discount will be applied when calculating total
-                    amount_paid=amount_paid
+                    amount_paid=initial_payment
                 )
 
                 # --- 6. Process Order Items ---
@@ -227,21 +232,26 @@ def order_create_api(request):
                 # --- 7. Calculate Final Totals & Update Order ---
                 # Add tax calculation logic here if needed (e.g., tax_rate = Decimal('0.05'))
                 tax_amount = Decimal('0.00') # Placeholder for tax
-                total_amount = (order_subtotal + tax_amount) - discount
-
-                # Ensure total isn't negative after discount
-                total_amount = max(total_amount, Decimal('0.00'))
 
                 new_order.subtotal = order_subtotal
                 new_order.tax_amount = tax_amount
-                new_order.total_amount = total_amount
+                new_order.total_amount = max((order_subtotal + tax_amount) - discount, Decimal('0.00'))
                 # Maybe update payment status based on amount_paid vs total_amount?
-                if amount_paid >= total_amount and payment_status != Order.PAYMENT_STATUS_REFUNDED:
-                     new_order.payment_status = Order.PAYMENT_STATUS_PAID
-                elif amount_paid > 0 and payment_status != Order.PAYMENT_STATUS_REFUNDED:
-                     new_order.payment_status = Order.PAYMENT_STATUS_PARTIAL
+                if new_order.amount_paid >= new_order.total_amount:
+                     final_payment_status = Order.PAYMENT_STATUS_PAID
+                elif new_order.amount_paid > Decimal('0.00'):
+                     final_payment_status = Order.PAYMENT_STATUS_PARTIAL
+                else:
+                     final_payment_status = Order.PAYMENT_STATUS_PENDING
+
+                new_order.payment_status = final_payment_status
                 # Save calculated totals
-                new_order.save(update_fields=['subtotal', 'tax_amount', 'total_amount', 'payment_status'])
+                if final_payment_status in [Order.PAYMENT_STATUS_PAID, Order.PAYMENT_STATUS_PARTIAL]:
+                     new_order.status = Order.ORDER_STATUS_PROCESSING # Or use status sent from JS? Decide workflow.
+                else:
+                     new_order.status = Order.ORDER_STATUS_PENDING # Or use status sent from JS?
+
+                new_order.save(update_fields=['subtotal', 'tax_amount', 'total_amount', 'payment_status', 'status']) # Add status
 
 
             # --- 8. Return Success Response ---
