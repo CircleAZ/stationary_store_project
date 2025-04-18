@@ -39,5 +39,7 @@ urlpatterns = [
     # --- ADD Order Create API URL ---
     path('api/orders/create/', order_views.order_create_api, name='api_order_create'),
 
-    # We'll add paths for other apps (dashboard, reports, core) later
+     path('dashboard/', include('dashboard.urls')),
+    # We'll add paths for other apps (reports, core) later
+
 ]

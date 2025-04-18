@@ -1,0 +1,82 @@
+{# dashboard/templates/dashboard/dashboard_home.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Dashboard" }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ page_title|default:"Dashboard" }}</h1>
+
+{# Quick Stats Row #}
+<div class="row mb-4">
+    {# Card 1: Today's Sales #}
+    <div class="col-md-4 mb-3">
+        <div class="card text-white bg-success shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-rupee-sign"></i> Today's Sales</h5>
+                <p class="card-text fs-4 fw-bold" id="stat-today-sales">₹{{ todays_sales|floatformat:2 }}</p>
+                {# <a href="#" class="text-white">View Details »</a> #}
+            </div>
+        </div>
+    </div>
+    {# Card 2: Pending Orders #}
+    <div class="col-md-4 mb-3">
+        <div class="card text-white bg-warning shadow-sm">
+             <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-clock"></i> Pending Orders</h5>
+                 <p class="card-text fs-4 fw-bold" id="stat-pending-orders">{{ pending_orders_count }}</p>
+                {# <a href="#" class="text-white">View Details »</a> #}
+            </div>
+        </div>
+    </div>
+    {# Card 3: Low Stock Items #}
+    <div class="col-md-4 mb-3">
+        <div class="card text-white bg-danger shadow-sm">
+             <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-exclamation-triangle"></i> Low Stock Items</h5>
+                <p class="card-text fs-4 fw-bold" id="stat-low-stock">{{ low_stock_count }}</p>
+                <a href="{% url 'inventory:low_stock_list' %}" class="text-white stretched-link">View Details »</a> {# Link to existing low stock page #}
+            </div>
+        </div>
+    </div>
+</div> {# End Quick Stats Row #}
+
+{# Quick Access Row #}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header">Quick Actions</div>
+            <div class="card-body text-center">
+                <a href="{% url 'orders:order_create' %}" class="btn btn-primary mx-2 my-1"><i class="fas fa-cart-plus"></i> New Order</a>
+                <a href="{% url 'inventory:product_add' %}" class="btn btn-info mx-2 my-1"><i class="fas fa-box-open"></i> Add Product</a>
+                <a href="{% url 'customers:customer_add' %}" class="btn btn-secondary mx-2 my-1"><i class="fas fa-user-plus"></i> Add Customer</a>
+                 {# Add more links as needed #}
+            </div>
+        </div>
+    </div>
+</div> {# End Quick Access Row #}
+
+{# Charts Row (Placeholder) #}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header">Reports Overview</div>
+            <div class="card-body">
+                <p class="text-muted">Charts and detailed report summaries will appear here.</p>
+                {# Placeholder for a chart canvas #}
+                {# <canvas id="topSellingChart"></canvas> #}
+            </div>
+        </div>
+    </div>
+</div> {# End Charts Row #}
+
+{% endblock %}
+
+{% block extra_js %}
+{# We might add JS later for charts #}
+<script>
+ console.log("Dashboard loaded.");
+ // Example: Chart.js later
+ // const ctx = document.getElementById('topSellingChart');
+ // new Chart(ctx, { ... config ... });
+</script>
+{% endblock %}
