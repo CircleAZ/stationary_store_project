@@ -2,7 +2,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.db.models import Q
+from django.db.models import Q, F
 import json
 from django.db import transaction
 from decimal import Decimal, InvalidOperation # <-- IMPORT Decimal AND InvalidOperation
@@ -11,7 +11,6 @@ from customers.models import Customer
 from inventory.models import Product
 from django.contrib import messages
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # For pagination
-from decimal import Decimal
 from .forms import OrderStatusUpdateForm 
 from django.views.decorators.http import require_POST
 
@@ -348,3 +347,227 @@ def order_update_status_view(request, pk):
     # Always redirect back to the order detail page
     return redirect('orders:order_detail', pk=order.pk)
 # --- END Status Update View ---
+
+# --- NEW View to record additional payment ---
+@login_required
+@require_POST # Should only be accessed via POST from the form
+def order_add_payment_view(request, pk):
+    """ Records an additional payment made towards an order. """
+    order = get_object_or_404(Order, pk=pk)
+    amount_due_before = max(order.total_amount - order.amount_paid, Decimal('0.00'))
+
+    # --- Validation: Check if order can accept payment ---
+    if order.payment_status in [Order.PAYMENT_STATUS_PAID, Order.PAYMENT_STATUS_REFUNDED] or \
+       order.status == Order.ORDER_STATUS_CANCELLED:
+        messages.error(request, "This order cannot receive additional payments.")
+        return redirect('orders:order_detail', pk=order.pk)
+    if amount_due_before <= 0:
+         messages.warning(request, "This order does not have an amount due.")
+         return redirect('orders:order_detail', pk=order.pk)
+    # --- End Validation ---
+
+    try:
+        amount_str = request.POST.get('amount')
+        if amount_str is None:
+             raise ValueError("Payment amount not provided.")
+
+        additional_amount = Decimal(amount_str)
+
+        # Validate the entered amount
+        if additional_amount <= 0:
+            raise ValueError("Payment amount must be positive.")
+        # Prevent overpayment beyond what's due? Optional, but usually good.
+        if additional_amount > amount_due_before + Decimal('0.01'): # Allow for tiny float issues
+             messages.warning(request, f"Payment amount (₹{additional_amount:.2f}) exceeds amount due (₹{amount_due_before:.2f}). Adjusting payment to amount due.")
+             additional_amount = amount_due_before
+
+        # --- Use a transaction for safety ---
+        with transaction.atomic():
+            # Update amount paid
+            order.amount_paid += additional_amount
+            order.amount_paid = round(order.amount_paid, 2) # Mitigate potential floating point issues
+
+            # Recalculate payment status (Backend source of truth)
+            if order.amount_paid >= order.total_amount - Decimal('0.01'): # Check if paid in full (with tolerance)
+                order.payment_status = Order.PAYMENT_STATUS_PAID
+                # Optional: Update order status if payment completes it
+                if order.status in [Order.ORDER_STATUS_PENDING, Order.ORDER_STATUS_PROCESSING]:
+                    order.status = Order.ORDER_STATUS_COMPLETED # Or specific 'Ready To Ship' etc.
+            else:
+                order.payment_status = Order.PAYMENT_STATUS_PARTIAL # Must be partial if not fully paid
+
+            # Save the changes
+            order.save(update_fields=['amount_paid', 'payment_status', 'status'])
+
+            # Optional: Add logic here to record the specific transaction details
+            # (e.g., create a separate PaymentTransaction model instance)
+            # payment_ref_add = request.POST.get('payment_reference_add')
+            # payment_method_add_id = request.POST.get('payment_method_add_id')
+            # ... create PaymentTransaction(...) ...
+
+            messages.success(request, f"₹{additional_amount:.2f} payment recorded successfully for Order {str(order.pk)[:8]}.")
+
+    except (InvalidOperation, ValueError, TypeError) as e:
+        messages.error(request, f"Invalid payment amount entered: {e}")
+    except Exception as e:
+        # Catch unexpected errors
+        messages.error(request, f"An error occurred while recording payment: {e}")
+        print(f"Error recording payment for order {pk}: {e}") # Log for debugging
+
+    # Always redirect back to the detail page
+    return redirect('orders:order_detail', pk=order.pk)
+# --- END Add Payment View ---
+
+@login_required
+def order_get_items_api(request, pk):
+    """ Returns current items for a given order as JSON. """
+    order = get_object_or_404(Order.objects.prefetch_related('items', 'items__product'), pk=pk)
+    items_data = []
+    for item in order.items.all():
+        items_data.append({
+            'item_id': item.pk, # ID of the OrderItem itself
+            'product_id': item.product.pk if item.product else None,
+            'product_name': item.product_name, # Use the snapshot name
+            'quantity': item.quantity,
+            'price': str(item.price), # Send price as string for consistency
+             # Optionally send current product stock if needed for validation in modal
+             # 'current_stock': item.product.stock_quantity if item.product else 0
+        })
+    return JsonResponse({'success': True, 'items': items_data})
+# --- END API View ---
+
+@login_required
+@require_POST # Expect POST with JSON body
+def order_update_items_api(request, pk):
+    """
+    Updates the items within an existing order based on data submitted
+    from the edit items modal. Handles stock adjustments and recalculates totals.
+    """
+    order = get_object_or_404(Order.objects.prefetch_related('items', 'items__product'), pk=pk)
+
+    # --- Validation: Check if order can be edited ---
+    if order.status not in [Order.ORDER_STATUS_PENDING, Order.ORDER_STATUS_PROCESSING]:
+        return JsonResponse({'success': False, 'error': f'Order cannot be edited in {order.get_status_display()} status.'}, status=400)
+
+    try:
+        data = json.loads(request.body)
+        submitted_items_data = data.get('items', []) # List of {item_id, product_id, quantity, price}
+
+        with transaction.atomic():
+            # Get current items from DB for comparison {item_pk: item_obj}
+            current_items_dict = {item.pk: item for item in order.items.all()}
+            submitted_item_ids = set() # Keep track of items submitted from modal
+
+            new_subtotal = Decimal('0.00')
+            items_to_create = []
+            updates_to_perform = [] # Store (item_obj, new_quantity, stock_diff)
+            deletions_to_perform = [] # Store item_obj to delete
+
+            # --- Process Submitted Items ---
+            for item_data in submitted_items_data:
+                item_id = item_data.get('item_id') # Might be 'new' or a PK
+                product_id = item_data.get('product_id')
+                new_quantity = int(item_data.get('quantity', 0))
+                price = Decimal(item_data.get('price')) # Price snapshot
+
+                if not product_id or new_quantity <= 0: continue # Skip invalid data
+
+                product = get_object_or_404(Product, pk=product_id) # Ensure product exists
+
+                if item_id == "new":
+                    # --- Handle NEW item ---
+                    # Check stock before adding to create list
+                    if product.stock_quantity < new_quantity:
+                         raise ValueError(f"Insufficient stock for new item {product.name}. Available: {product.stock_quantity}")
+                    items_to_create.append({
+                        'order': order, 'product': product, 'price': price, 'quantity': new_quantity
+                    })
+                    updates_to_perform.append((None, 0, -new_quantity, product)) # Stock diff for new item
+                    new_subtotal += price * new_quantity
+                else:
+                    # --- Handle EXISTING item ---
+                    item_id = int(item_id) # Convert PK to int
+                    submitted_item_ids.add(item_id)
+                    if item_id in current_items_dict:
+                        current_item = current_items_dict[item_id]
+                        # Check if quantity changed
+                        if current_item.quantity != new_quantity:
+                            stock_diff = current_item.quantity - new_quantity # Positive if stock goes UP, negative if DOWN
+                            # Check stock availability if quantity increased
+                            if new_quantity > current_item.quantity and product.stock_quantity < (new_quantity - current_item.quantity):
+                                raise ValueError(f"Insufficient stock for updated item {product.name}. Available: {product.stock_quantity}")
+                            updates_to_perform.append((current_item, new_quantity, stock_diff, product))
+                        # Price shouldn't change for existing item, use current_item.price for subtotal
+                        new_subtotal += current_item.price * new_quantity
+                    else:
+                        # Item ID submitted but not found in current order? Error or ignore?
+                        print(f"Warning: Submitted item ID {item_id} not found in current order {order.pk}")
+                        # For now, ignore potential errors like this
+
+            # --- Handle DELETED items ---
+            # Items in DB but not submitted were deleted in the modal
+            for item_id, current_item in current_items_dict.items():
+                if item_id not in submitted_item_ids:
+                    deletions_to_perform.append(current_item)
+                    # Stock will be returned when item is deleted
+                    updates_to_perform.append((None, 0, current_item.quantity, current_item.product)) # Stock diff for deleted
+
+            # --- Apply DB Changes & Stock Updates ---
+            # 1. Delete items marked for deletion
+            for item_to_delete in deletions_to_perform:
+                item_to_delete.delete()
+
+            # 2. Update quantities for existing items
+            for item_obj, new_qty, _, _ in updates_to_perform:
+                 if item_obj and new_qty > 0: # Ensure it's an update, not just stock tracking
+                     item_obj.quantity = new_qty
+                     item_obj.save(update_fields=['quantity'])
+
+            # 3. Create new items
+            OrderItem.objects.bulk_create([OrderItem(**data) for data in items_to_create])
+
+            # 4. Update Stock (after all DB changes are settled for items)
+            product_stock_updates = {} # {product_pk: total_stock_diff}
+            for _, _, stock_diff, product_obj in updates_to_perform:
+                 if product_obj: # Make sure product exists
+                     product_stock_updates[product_obj.pk] = product_stock_updates.get(product_obj.pk, 0) + stock_diff
+
+            for product_pk, total_diff in product_stock_updates.items():
+                 # Use F() expression for atomic update
+                 Product.objects.filter(pk=product_pk).update(stock_quantity=F('stock_quantity') + total_diff)
+
+
+            # --- Recalculate Order Totals ---
+            # Ensure discount is Decimal
+            discount = order.discount_amount # Use property or re-fetch if needed
+            tax_amount = Decimal('0.00') # Placeholder
+            new_total_amount = max((new_subtotal + tax_amount) - discount, Decimal('0.00'))
+
+            # Update the Order itself
+            order.subtotal = new_subtotal
+            order.tax_amount = tax_amount
+            order.total_amount = new_total_amount
+            # Recalculate payment status based on new total
+            if order.amount_paid >= new_total_amount:
+                order.payment_status = Order.PAYMENT_STATUS_PAID
+                # Optionally update order status again?
+                # if order.status == Order.ORDER_STATUS_PROCESSING:
+                #    order.status = Order.ORDER_STATUS_COMPLETED
+            elif order.amount_paid > Decimal('0.00'):
+                order.payment_status = Order.PAYMENT_STATUS_PARTIAL
+            else:
+                 order.payment_status = Order.PAYMENT_STATUS_PENDING
+
+            order.save(update_fields=['subtotal', 'tax_amount', 'total_amount', 'payment_status', 'status']) # Add status if changed
+
+        # --- End Transaction ---
+
+        return JsonResponse({'success': True, 'message': 'Order items updated successfully.'})
+
+    except ValueError as e: # Catch stock errors or bad quantity/price
+         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+    except Product.DoesNotExist:
+         return JsonResponse({'success': False, 'error': 'Invalid product ID found in items.'}, status=400)
+    except Exception as e:
+        print(f"Error updating order items for {pk}: {e}") # Log error
+        return JsonResponse({'success': False, 'error': 'An unexpected error occurred while updating items.'}, status=500)

@@ -10,6 +10,13 @@
         <a href="{% url 'orders:order_list' %}" class="btn btn-secondary btn-sm me-2">« Back to Order List</a>
         {# Potential actions like Print Receipt, Edit Status etc. can go here later #}
         {# <button class="btn btn-outline-primary btn-sm">Print Receipt</button> #}
+
+        {% if order.status == order.ORDER_STATUS_PENDING or order.status == order.ORDER_STATUS_PROCESSING %}
+        <button type="button" class="btn btn-warning btn-sm me-2" id="edit-items-btn" data-bs-toggle="modal" data-bs-target="#editItemsModal">
+            <i class="fas fa-edit"></i> Edit Items
+        </button>
+        {% endif %}
+
     </div>
   </div>
 
@@ -87,6 +94,28 @@
              <dd class="col-sm-8">₹{{ amount_due|floatformat:2 }}</dd>
 
           </dl>
+
+          {# --- ADD ADDITIONAL PAYMENT FORM (Conditionally) --- #}
+          {% if order.payment_status != order.PAYMENT_STATUS_PAID and order.payment_status != order.PAYMENT_STATUS_REFUNDED and order.status != order.ORDER_STATUS_CANCELLED and amount_due > 0 %}
+            <hr class="my-3"> {# Separator #}
+            {# Form points to a new URL we will create #}
+            <form action="{% url 'orders:order_add_payment' pk=order.pk %}" method="post" class="mt-2">
+                {% csrf_token %}
+                <label for="additional_payment" class="form-label fw-bold mb-1">Record Additional Payment:</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">₹</span>
+                    {# Input for the amount being paid NOW #}
+                    <input type="number" name="amount" class="form-control" id="additional_payment" step="0.01" min="0.01" max="{{ amount_due|floatformat:2 }}" placeholder="{{ amount_due|floatformat:2 }}" required>
+                    {# Optional fields for this specific payment transaction - Add later if needed #}
+                    {# <select name="payment_method_add_id" class="form-select"><option>Select Method</option>...</select> #}
+                    {# <input type="text" name="payment_reference_add" class="form-control" placeholder="Payment Reference (Optional)"> #}
+                    <button type="submit" class="btn btn-success">Record Payment</button>
+                </div>
+                 <small class="form-text text-muted">Enter the amount being paid now.</small>
+            </form>
+          {% endif %}
+          {# --- END ADDITIONAL PAYMENT FORM --- #}
+
         </div>
       </div>
 
@@ -180,5 +209,342 @@
 
     </div>{# End Customer/Items Column #}
   </div> {# End Row #}
+ 
+  <div class="modal fade" id="editItemsModal" tabindex="-1" aria-labelledby="editItemsModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false"> {# Static backdrop prevents closing on click outside #}
+    <div class="modal-dialog modal-xl"> {# Extra large modal #}
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editItemsModalLabel">Edit Order Items (Order {{ order.order_id|stringformat:".8s" }})</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="edit-items-modal-body">
+          {# Content loaded dynamically via JS/API #}
+          <div class="text-center p-5">
+              <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading current items...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel Changes</button>
+          <button type="button" class="btn btn-primary" id="save-item-changes-btn">Save Item Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+ // orders/templates/orders/order_detail.html - inside script tag
+
+ document.addEventListener('DOMContentLoaded', function() {
+    console.log("Order Detail Page JS Loaded");
+
+    // --- Edit Items Modal Elements ---
+    const editItemsBtn = document.getElementById('edit-items-btn');
+    const editItemsModalEl = document.getElementById('editItemsModal');
+    const editItemsModalBody = document.getElementById('edit-items-modal-body');
+    const saveItemChangesBtn = document.getElementById('save-item-changes-btn'); // Button in modal footer
+
+    let editItemsModalInstance = null;
+    if (editItemsModalEl) {
+        editItemsModalInstance = new bootstrap.Modal(editItemsModalEl);
+    }
+
+    // Store current order pk (needed for API calls) - read from a data attribute or URL if possible
+    // Simplest way for now: Extract from button's action URL or current page URL (less robust)
+    // Let's assume the button/link hrefs are correctly set with the order PK
+    const orderPkElement = document.querySelector("[data-order-pk]"); // Add data-order-pk="{{ order.pk }}" to a main element
+    const ORDER_PK = editItemsBtn ? editItemsBtn.closest('.card, body').querySelector('[data-order-pk]')?.dataset.orderPk || window.location.pathname.split('/')[2] : null; // Find PK, fallback to URL segment
+     if (orderPkElement) {
+         // ORDER_PK = orderPkElement.dataset.orderPk;
+     } else {
+        console.warn("Could not reliably determine Order PK for API calls.");
+     }
+
+
+    // --- Listener for Edit Items Button ---
+    if (editItemsBtn) {
+        editItemsBtn.addEventListener('click', function() {
+            console.log("Edit Items button clicked for order:", ORDER_PK);
+            if (!editItemsModalInstance || !ORDER_PK) {
+                 console.error("Modal instance or Order PK missing.");
+                 return;
+            }
+
+            // Show Loading State in Modal Body
+            editItemsModalBody.innerHTML = `
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                    <p class="mt-2">Loading current items...</p>
+                </div>`;
+            // Modal is shown via data-bs-toggle, no need for .show() here unless removing those attributes
+
+            // Fetch current items
+            fetch(`/orders/${ORDER_PK}/api/items/`)
+                .then(response => {
+                    if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        renderEditItemsModalContent(data.items); // Render the editable table
+                    } else {
+                        throw new Error(data.error || "Failed to load items.");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching order items:", error);
+                    editItemsModalBody.innerHTML = `<div class="alert alert-danger">Error loading items: ${error.message}</div>`;
+                });
+        });
+    }
+
+    // --- Function to Render Modal Content ---
+    function renderEditItemsModalContent(currentItems) {
+        // Build the HTML for the modal body, including product search and items table
+        let tableRowsHtml = '';
+        if (currentItems && currentItems.length > 0) {
+            currentItems.forEach(item => {
+                const price = parseFloat(item.price).toFixed(2);
+                const lineTotal = (price * item.quantity).toFixed(2);
+                // Note: Using item.item_id to potentially track existing items vs new ones
+                tableRowsHtml += `
+                    <tr data-item-id="${item.item_id}" data-product-id="${item.product_id}" data-price="${price}">
+                        <td>${item.product_name}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm item-quantity-input" value="${item.quantity}" min="1" style="width: 70px;">
+                        </td>
+                        <td class="text-end">₹${price}</td>
+                        <td class="text-end item-line-total">₹${lineTotal}</td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm item-delete-btn" title="Remove Item">×</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            tableRowsHtml = `<tr id="modal-no-items-row"><td colspan="5" class="text-center text-muted">No items in order.</td></tr>`;
+        }
+
+        // --- Complete Modal Body HTML ---
+        editItemsModalBody.innerHTML = `
+            <h5>Add/Edit Items</h5>
+            {# Add Product Search Input for Modal #}
+            <div class="input-group mb-3">
+                 <input type="text" class="form-control" placeholder="Search Product to Add" id="modal-product-search-input">
+            </div>
+             <div id="modal-product-search-results" class="list-group mb-3" style="max-height: 150px; overflow-y: auto; display: none;">
+                <!-- Product Search results for modal -->
+            </div>
+
+            {# Items Table #}
+             <div class="table-responsive">
+                <table class="table table-sm" id="edit-items-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th style="width: 15%;">Quantity</th>
+                            <th style="width: 15%;">Price/Unit</th>
+                            <th style="width: 15%;">Total</th>
+                            <th style="width: 5%;"></th> {# Del #}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+            {# Placeholder for modal-specific summary if needed #}
+            {# <div class="text-end fw-bold mt-2">Modal Subtotal: ₹<span id="modal-subtotal">0.00</span></div> #}
+            <div id="modal-save-error" class="text-danger mt-2"></div> {# For save errors #}
+        `;
+
+        // --- Attach Listeners AFTER rendering ---
+        // Attach listeners to existing item rows loaded from API
+        editItemsModalBody.querySelectorAll('#edit-items-table tbody tr[data-item-id]').forEach(row => {
+            attachModalItemRowListeners(row); // Reuse/adapt listener logic
+        });
+        // Attach listener for product search within the modal
+        attachModalProductSearchListener();
+        // Calculate initial modal summary (if displaying one)
+        // updateModalSummary();
+    }
+
+    // --- Function to Attach Listeners to Modal Item Row ---
+    // (Adapt from POS page: updateModalLineTotal, Delete button logic)
+    function attachModalItemRowListeners(row) {
+         const quantityInput = row.querySelector('.item-quantity-input');
+         const deleteButton = row.querySelector('.item-delete-btn');
+
+         quantityInput.addEventListener('change', function() { updateModalLineTotal(row); /* updateModalSummary(); */ });
+         quantityInput.addEventListener('input', function() { updateModalLineTotal(row); /* updateModalSummary(); */ });
+
+         deleteButton.addEventListener('click', function() {
+             // Just remove visually for now, actual delete happens on Save Changes
+             row.remove();
+             // updateModalSummary();
+             // Add back "no items" row if needed for modal
+             if (editItemsModalBody.querySelectorAll('#edit-items-table tbody tr[data-product-id]').length === 0) {
+                  // Add placeholder row logic here if needed
+             }
+         });
+    }
+
+     // --- Function to Update Modal Line Total ---
+     function updateModalLineTotal(row) {
+        const quantityInput = row.querySelector('.item-quantity-input');
+        const lineTotalCell = row.querySelector('.item-line-total');
+        const price = parseFloat(row.dataset.price);
+        let quantity = parseInt(quantityInput.value);
+        if (isNaN(quantity) || quantity < 1) { quantity = 1; quantityInput.value = 1; }
+        const lineTotal = (price * quantity).toFixed(2);
+        lineTotalCell.textContent = `₹${lineTotal}`;
+     }
+
+    // --- Function to Attach Product Search Listener for Modal ---
+    function attachModalProductSearchListener() {
+        const modalSearchInput = document.getElementById('modal-product-search-input');
+        const modalSearchResultsDiv = document.getElementById('modal-product-search-results');
+        let modalProductSearchTimeout;
+
+        if (modalSearchInput) {
+            modalSearchInput.addEventListener('input', function() {
+                clearTimeout(modalProductSearchTimeout);
+                const query = this.value.trim();
+                modalSearchResultsDiv.innerHTML = '';
+                if (query.length < 2) { modalSearchResultsDiv.style.display = 'none'; return; }
+
+                modalProductSearchTimeout = setTimeout(() => {
+                    fetch(`/api/products/search/?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => displayModalProductResults(data.results))
+                        .catch(error => { console.error("Modal Product Search Error:", error); /* Handle error */ });
+                }, 300);
+            });
+        }
+    }
+
+    // --- Function to Display Modal Product Results ---
+    function displayModalProductResults(products) {
+         const modalSearchResultsDiv = document.getElementById('modal-product-search-results');
+         modalSearchResultsDiv.innerHTML = '';
+         if (products && products.length > 0) {
+             products.forEach(product => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.classList.add('list-group-item', 'list-group-item-action');
+                item.innerHTML = `<div>${product.text}</div><small class="text-muted">Price: ₹${product.price}</small>`;
+                item.dataset.productId = product.id;
+                item.dataset.productName = product.text;
+                item.dataset.productPrice = product.price;
+
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    addProductToModalTable( // New function needed
+                        this.dataset.productId,
+                        this.dataset.productName,
+                        this.dataset.productPrice
+                    );
+                    document.getElementById('modal-product-search-input').value = '';
+                    modalSearchResultsDiv.innerHTML = '';
+                    modalSearchResultsDiv.style.display = 'none';
+                });
+                modalSearchResultsDiv.appendChild(item);
+             });
+             modalSearchResultsDiv.style.display = 'block';
+         } else { /* Show no results */ }
+    }
+
+     // --- Function to Add Product Row to MODAL Table ---
+     function addProductToModalTable(productId, productName, productPrice) {
+         const modalTableBody = editItemsModalBody.querySelector('#edit-items-table tbody');
+         const existingRow = modalTableBody.querySelector(`tr[data-product-id="${productId}"]`);
+
+         if (existingRow) { // Increase quantity if already exists in modal table
+             const quantityInput = existingRow.querySelector('.item-quantity-input');
+             quantityInput.value = parseInt(quantityInput.value) + 1;
+             quantityInput.dispatchEvent(new Event('change')); // Trigger update
+         } else { // Add new row
+             const price = parseFloat(productPrice).toFixed(2);
+             const quantity = 1;
+             const lineTotal = (price * quantity).toFixed(2);
+             const newRow = document.createElement('tr');
+             // Set item_id to "new" or empty to distinguish from existing items
+             newRow.dataset.itemId = "new";
+             newRow.dataset.productId = productId;
+             newRow.dataset.price = price;
+             newRow.innerHTML = `
+                <td>${productName}</td>
+                <td><input type="number" class="form-control form-control-sm item-quantity-input" value="${quantity}" min="1" style="width: 70px;"></td>
+                <td class="text-end">₹${price}</td>
+                <td class="text-end item-line-total">₹${lineTotal}</td>
+                <td><button type="button" class="btn btn-danger btn-sm item-delete-btn" title="Remove Item">×</button></td>
+             `;
+             modalTableBody.appendChild(newRow);
+             attachModalItemRowListeners(newRow); // Attach listeners to the new row
+             // updateModalSummary();
+         }
+     }
+
+
+    // --- Listener for "Save Item Changes" Button in Modal Footer ---
+    if (saveItemChangesBtn) {
+        saveItemChangesBtn.addEventListener('click', function() {
+            console.log("Save Item Changes clicked for order:", ORDER_PK);
+            this.disabled = true; this.textContent = "Saving...";
+            const modalErrorDiv = document.getElementById('modal-save-error');
+            modalErrorDiv.textContent = ''; // Clear previous errors
+
+            // 1. Gather final item state from the modal table
+            const finalItems = [];
+            editItemsModalBody.querySelectorAll('#edit-items-table tbody tr[data-product-id]').forEach(row => {
+                finalItems.push({
+                     // item_id might be 'new' or an actual PK
+                     item_id: row.dataset.itemId,
+                     product_id: row.dataset.productId,
+                     quantity: parseInt(row.querySelector('.item-quantity-input').value),
+                     price: row.dataset.price // Keep original price snapshot for existing, use current for new? Decide logic.
+                });
+            });
+
+             // 2. Get CSRF token
+             const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value; // Assumes token on main page
+             if (!csrfToken) { /* Handle error */ this.disabled = false; this.textContent = "Save Item Changes"; return; }
+
+             // 3. Send data to backend update API (needs to be created)
+             fetch(`/orders/${ORDER_PK}/api/update_items/`, { // New API URL
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                     'X-CSRFToken': csrfToken
+                 },
+                 body: JSON.stringify({ items: finalItems }) // Send the list of items
+             })
+             .then(response => response.json())
+             .then(data => {
+                 if (data.success) {
+                     editItemsModalInstance.hide();
+                     // Refresh the whole page to see updated order details & totals
+                     window.location.reload();
+                 } else {
+                     console.error("Error updating items:", data.error);
+                     modalErrorDiv.textContent = data.error || "Failed to save changes.";
+                     this.disabled = false; this.textContent = "Save Item Changes";
+                 }
+             })
+             .catch(error => {
+                 console.error("Network error updating items:", error);
+                 modalErrorDiv.textContent = "Network error. Please try again.";
+                 this.disabled = false; this.textContent = "Save Item Changes";
+             });
+        });
+    }
+
+ }); // End DOMContentLoaded
+</script>
 {% endblock %}
