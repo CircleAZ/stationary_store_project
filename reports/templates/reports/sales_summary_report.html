@@ -6,8 +6,51 @@
 {% block content %}
 <h1 class="mb-4">{{ page_title|default:"Sales Summary Report" }}</h1>
 
-{# Add Date Range Filters later #}
 {# <div class="card mb-4"><div class="card-body">Date Filters Go Here</div></div> #}
+
+{# --- ADD DATE FILTER FORM --- #}
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <form method="get" action="{% url 'reports:sales_summary' %}" class="row row-cols-lg-auto g-3 align-items-center">
+            <div class="col-12">
+              <label class="visually-hidden" for="id_start_date">Start Date</label>
+              {{ form.start_date }} {# Render start date input #}
+            </div>
+            <div class="col-12">
+              <label class="visually-hidden" for="id_end_date">End Date</label>
+              {{ form.end_date }} {# Render end date input #}
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+              <a href="{% url 'reports:sales_summary' %}" class="btn btn-outline-secondary btn-sm ms-2">Clear</a> {# Link to clear filters #}
+            </div>
+        </form>
+         {% if form.start_date.errors or form.end_date.errors %}
+            <div class="text-danger mt-2 small">Please enter valid dates (YYYY-MM-DD).</div>
+         {% endif %}
+    </div>
+</div>
+{# --- END DATE FILTER FORM --- #}
+
+{# --- DISPLAY CUSTOM RANGE STATS (if available) --- #}
+{% if date_range_stats %}
+<div class="card mb-4 shadow-sm border-primary">
+     <div class="card-header bg-primary text-white">
+         Filtered Range Results
+         ({% if start_date %}{{ start_date|date:"d M Y" }}{% endif %}
+         {% if start_date and end_date %} - {% endif %}
+         {% if end_date %}{{ end_date|date:"d M Y" }}{% endif %})
+     </div>
+     <div class="card-body">
+         <p class="card-text">Sales: <strong class="fs-5">₹{{ date_range_stats.total_sales|floatformat:2 }}</strong></p>
+         <p class="card-text">Orders: <strong class="fs-5">{{ date_range_stats.order_count }}</strong></p>
+         <p class="card-text mb-0">Avg Value: <strong class="fs-5">₹{{ date_range_stats.avg_order_value|floatformat:2 }}</strong></p>
+     </div>
+ </div>
+{% endif %}
+{# --- END CUSTOM RANGE STATS --- #}
+
+
 
 <div class="row">
     {# Today's Stats #}

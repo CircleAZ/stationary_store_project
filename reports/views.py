@@ -8,6 +8,7 @@ from decimal import Decimal
 from orders.models import Order, OrderItem
 from inventory.models import Product  
 from customers.models import Customer
+from .forms import DateRangeForm
 
 @login_required
 def sales_summary_report_view(request):
@@ -18,6 +19,19 @@ def sales_summary_report_view(request):
     start_of_month = today.replace(day=1)
 
     # Base queryset - filter orders relevant for sales (adjust as needed)
+    base_orders_qs = Order.objects.filter(
+        status__in=[Order.ORDER_STATUS_COMPLETED, Order.ORDER_STATUS_PROCESSING]
+    )
+
+    form = DateRangeForm(request.GET or None) # Populate with GET data if present
+    start_date = None
+    end_date = None
+    date_range_stats = None # Initialize stats for the custom range
+
+    if form.is_valid():
+        start_date = form.cleaned_data.get('start_date')
+        end_date = form.cleaned_data.get('end_date')
+
     base_orders_qs = Order.objects.filter(
         status__in=[Order.ORDER_STATUS_COMPLETED, Order.ORDER_STATUS_PROCESSING]
     )
@@ -62,8 +76,34 @@ def sales_summary_report_view(request):
     )
     all_time_stats['avg_order_value'] = all_time_stats['avg_order_value'] or Decimal('0.00')
 
+
+    filtered_qs = base_orders_qs # Start with the base queryset
+    if start_date:
+        filtered_qs = filtered_qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        # Add 1 day to end_date for __lte if you want inclusive range,
+        # or use __lt for exclusive end date if using datetime.
+        # For __date lookup, <= end_date is usually sufficient.
+        filtered_qs = filtered_qs.filter(created_at__date__lte=end_date)
+
+    # Only calculate if dates were provided or if form wasn't submitted (show all-time initially)
+    # Let's calculate even if only one date is given
+    if start_date or end_date:
+         date_range_stats = filtered_qs.aggregate(
+             total_sales=Coalesce(Sum('total_amount'), Decimal('0.00'), output_field=DecimalField()),
+             order_count=Count('pk'),
+             avg_order_value=Avg('total_amount')
+         )
+         date_range_stats['avg_order_value'] = date_range_stats['avg_order_value'] or Decimal('0.00')
+
+
+
     context = {
         'page_title': page_title,
+        'form': form, # Pass the form to the template
+        'start_date': start_date, # Pass selected dates for display
+        'end_date': end_date,
+        'date_range_stats': date_range_stats, # Pass stats for the custom range
         'today_stats': today_stats,
         'week_stats': week_stats,
         'month_stats': month_stats,
