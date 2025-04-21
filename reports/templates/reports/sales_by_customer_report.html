@@ -1,0 +1,49 @@
+{# reports/templates/reports/sales_by_customer_report.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Sales by Customer" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">{{ page_title|default:"Sales by Customer" }}</h1>
+    {# Link back to main reports summary #}
+    <a href="{% url 'reports:sales_summary' %}" class="btn btn-secondary btn-sm">« Back to Sales Summary</a>
+</div>
+
+{# Add Date Range Filters later #}
+{# <div class="card mb-4"><div class="card-body">Date Filters Go Here</div></div> #}
+
+{% if customers_sales_data %}
+  <div class="table-responsive">
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr>
+          <th scope="col">Customer</th>
+          <th scope="col">Email</th>
+          <th scope="col">Phone</th>
+          <th scope="col" class="text-center">Orders Placed</th>
+          <th scope="col" class="text-end">Total Spent</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for customer in customers_sales_data %} {# Loop through annotated customers #}
+          <tr>
+            <td>
+              <a href="{% url 'customers:customer_detail' pk=customer.pk %}">{{ customer.full_name }}</a>
+            </td>
+            <td>{{ customer.email|default:"-" }}</td>
+            <td>{{ customer.full_phone_number|default:"-" }}</td>
+            <td class="text-center">{{ customer.order_count }}</td> {# Display annotated count #}
+            <td class="text-end">₹{{ customer.total_spent|floatformat:2 }}</td> {# Display annotated sum #}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-info" role="alert">
+    No customer sales data found for the selected criteria.
+  </div>
+{% endif %}
+
+{% endblock %}

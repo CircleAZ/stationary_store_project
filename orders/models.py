@@ -127,22 +127,39 @@ class OrderItem(models.Model):
     # Store product name/details *at the time of order* in case product details change later
     product_name = models.CharField(max_length=255, blank=True) # Snapshot of product name
     price = models.DecimalField(max_digits=10, decimal_places=2) # Price PER UNIT at time of order
+    
+    cost_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True, # Allow null if cost wasn't available/applicable? Or default to 0? Let's allow null for flexibility.
+        blank=True,
+        help_text="Cost price per unit at the time of order."
+    )
+    
     quantity = models.PositiveIntegerField(default=1)
     # Add discount fields later if needed (e.g., item_discount_amount)
 
     def save(self, *args, **kwargs):
-        # Store product name when saving if not already set
-        if not self.product_name and self.product:
-            self.product_name = self.product.name
-        super().save(*args, **kwargs)
+        if not self.pk: # Only set snapshots on initial creation
+            if self.product:
+                if not self.product_name:
+                    self.product_name = self.product.name
+                # --- ADD: Store cost_price snapshot ---
+                if self.cost_price is None and self.product.cost_price is not None: # Check if not already set and product has cost
+                    self.cost_price = self.product.cost_price
+                # --- END ADD ---
+        super().save(*args, **kwargs) # Call the "real" save() method.
 
-    def get_cost(self):
-        # Calculate the total cost for this item line
-        # --- ADD CHECK FOR None ---
+    def get_cost(self): # This calculates selling price * quantity
         if self.price is not None and self.quantity is not None:
             return self.price * self.quantity
-        return 0 # Or return None, or Decimal('0.00') if you prefer
-        # --- END CHECK ---
+        return Decimal('0.00') # Return Decimal
+
+    def get_total_cost_price(self):
+        """ Calculates the total cost of goods for this line item """
+        if self.cost_price is not None and self.quantity is not None:
+            return self.cost_price * self.quantity
+        return Decimal('0.00') # Return Decimal if cost is unknown
 
     def __str__(self):
         return f"{self.quantity} x {self.product_name or 'N/A'} in Order {str(self.order.order_id)[:8]}"

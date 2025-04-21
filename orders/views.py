@@ -190,15 +190,16 @@ def order_create_api(request):
                     amount_paid=initial_payment
                 )
 
-                # --- 6. Process Order Items ---
+                # --- 6. Process Order Items (MODIFIED) ---
                 order_subtotal = Decimal('0.00')
+                items_to_create_data = [] # Prepare data for bulk create
+
                 for item_data in items_data:
                     product_id = item_data.get('product_id')
                     quantity = int(item_data.get('quantity', 0))
-                    price_str = str(item_data.get('price', '0')) # Price snapshot from JS
+                    price_str = str(item_data.get('price', '0'))
 
                     if not product_id or quantity <= 0:
-                        # Should have been validated by JS, but double-check
                         raise ValueError(f"Invalid item data received: {item_data}")
 
                     try:
@@ -206,27 +207,47 @@ def order_create_api(request):
                     except InvalidOperation:
                        raise ValueError(f"Invalid price format for item: {item_data}")
 
-                    product = get_object_or_404(Product, pk=product_id)
+                    # Fetch product once
+                    product = get_object_or_404(Product.objects.select_related('category'), pk=product_id) # select_related optional
 
-                    # Check stock (optional but recommended)
+                    # Check stock
                     if product.stock_quantity < quantity:
                          raise ValueError(f"Insufficient stock for {product.name}. Available: {product.stock_quantity}, Requested: {quantity}")
 
-                    # Create OrderItem
-                    OrderItem.objects.create(
-                        order=new_order,
-                        product=product,
-                        # product_name is set automatically by OrderItem's save() method
-                        price=price, # Use price sent from JS (snapshot)
-                        quantity=quantity
+                    # Prepare data for OrderItem creation, including cost price
+                    items_to_create_data.append(
+                        OrderItem(
+                            order=new_order,
+                            product=product,
+                            product_name=product.name, # Explicitly set name snapshot
+                            price=price,              # Selling price snapshot
+                            quantity=quantity,
+                            cost_price=product.cost_price # <-- ADDED: Explicitly set cost price snapshot
+                        )
                     )
 
-                    # Update subtotal
+                    # Update subtotal (based on selling price)
                     order_subtotal += price * quantity
 
-                    # Update Product Stock
-                    product.stock_quantity -= quantity
-                    product.save(update_fields=['stock_quantity']) # Efficiently save only stock
+                    # Update Product Stock (Done later outside loop for bulk update)
+                    # product.stock_quantity -= quantity # Moved to bulk update below
+                    # product.save(update_fields=['stock_quantity'])
+
+                # --- Bulk Create OrderItems ---
+                OrderItem.objects.bulk_create(items_to_create_data)
+
+                # --- Bulk Update Stock (More efficient) ---
+                # Prepare updates: {product_pk: quantity_change}
+                stock_updates = {}
+                for item_data in items_data:
+                     product_id = item_data.get('product_id')
+                     quantity = int(item_data.get('quantity', 0))
+                     if product_id and quantity > 0:
+                         stock_updates[product_id] = stock_updates.get(product_id, 0) - quantity
+
+                for prod_pk, qty_change in stock_updates.items():
+                    Product.objects.filter(pk=prod_pk).update(stock_quantity=F('stock_quantity') + qty_change) # Note: change is negative
+
 
                 # --- 7. Calculate Final Totals & Update Order ---
                 # Add tax calculation logic here if needed (e.g., tax_rate = Decimal('0.05'))

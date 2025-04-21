@@ -1,0 +1,71 @@
+{# reports/templates/reports/sales_summary_report.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Sales Report" }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ page_title|default:"Sales Summary Report" }}</h1>
+
+{# Add Date Range Filters later #}
+{# <div class="card mb-4"><div class="card-body">Date Filters Go Here</div></div> #}
+
+<div class="row">
+    {# Today's Stats #}
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">Today</div>
+            <div class="card-body">
+                <p class="card-text">Sales: <strong class="fs-5">₹{{ today_stats.total_sales|floatformat:2 }}</strong></p>
+                <p class="card-text">Orders: <strong class="fs-5">{{ today_stats.order_count }}</strong></p>
+                <p class="card-text mb-0">Avg Value: <strong class="fs-5">₹{{ today_stats.avg_order_value|floatformat:2 }}</strong></p>
+            </div>
+        </div>
+    </div>
+
+    {# This Week's Stats #}
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">This Week</div>
+            <div class="card-body">
+                 <p class="card-text">Sales: <strong class="fs-5">₹{{ week_stats.total_sales|floatformat:2 }}</strong></p>
+                <p class="card-text">Orders: <strong class="fs-5">{{ week_stats.order_count }}</strong></p>
+                <p class="card-text mb-0">Avg Value: <strong class="fs-5">₹{{ week_stats.avg_order_value|floatformat:2 }}</strong></p>
+            </div>
+        </div>
+    </div>
+
+    {# This Month's Stats #}
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">This Month</div>
+            <div class="card-body">
+                 <p class="card-text">Sales: <strong class="fs-5">₹{{ month_stats.total_sales|floatformat:2 }}</strong></p>
+                <p class="card-text">Orders: <strong class="fs-5">{{ month_stats.order_count }}</strong></p>
+                <p class="card-text mb-0">Avg Value: <strong class="fs-5">₹{{ month_stats.avg_order_value|floatformat:2 }}</strong></p>
+            </div>
+        </div>
+    </div>
+
+    {# All Time Stats #}
+    <div class="col-md-6 col-lg-3 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header">All Time</div>
+            <div class="card-body">
+                 <p class="card-text">Sales: <strong class="fs-5">₹{{ all_time_stats.total_sales|floatformat:2 }}</strong></p>
+                <p class="card-text">Orders: <strong class="fs-5">{{ all_time_stats.order_count }}</strong></p>
+                <p class="card-text mb-0">Avg Value: <strong class="fs-5">₹{{ all_time_stats.avg_order_value|floatformat:2 }}</strong></p>
+            </div>
+        </div>
+    </div>
+</div> {# End Row #}
+
+{# Add placeholder for more detailed reports or charts #}
+<div class="mt-4">
+    <p><em>More detailed reports (by product, customer, etc.) can be added here.</em></p>
+    <a href="{% url 'reports:sales_by_product' %}" class="btn btn-link">View Sales by Product</a>
+    <a href="{% url 'reports:sales_by_customer' %}" class="btn btn-link">View Sales by Customer</a>
+    <a href="{% url 'reports:profit_loss' %}" class="btn btn-link">View Profit & Loss Overview</a>
+
+</div>
+
+{% endblock %}

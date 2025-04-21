@@ -1,0 +1,42 @@
+{# reports/templates/reports/profit_loss_report.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Profit & Loss" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">{{ page_title|default:"Profit & Loss Overview" }}</h1>
+    {# Link back to main reports summary #}
+    <a href="{% url 'reports:sales_summary' %}" class="btn btn-secondary btn-sm">« Back to Sales Summary</a>
+</div>
+
+{# Add Date Range Filters later #}
+{# <div class="card mb-4"><div class="card-body">Date Filters Go Here</div></div> #}
+
+<div class="card shadow-sm">
+    <div class="card-header">Summary (Based on Completed Orders)</div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-4 fs-5">Total Revenue:</dt>
+            <dd class="col-sm-8 fs-5 text-success">₹{{ total_revenue|floatformat:2 }}</dd>
+
+            <dt class="col-sm-4 fs-5">Total Cost of Goods Sold (COGS):</dt>
+            <dd class="col-sm-8 fs-5 text-danger">₹{{ total_cogs|floatformat:2 }}</dd>
+
+            <hr class="my-3">
+
+            <dt class="col-sm-4 fs-4 fw-bold">Gross Profit:</dt>
+            <dd class="col-sm-8 fs-4 fw-bold {% if gross_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                ₹{{ gross_profit|floatformat:2 }}
+            </dd>
+
+            <dt class="col-sm-4">Gross Profit Margin:</dt>
+            <dd class="col-sm-8 {% if gross_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                {{ gross_profit_margin|floatformat:2 }}%
+            </dd>
+        </dl>
+         <small class="text-muted">* Calculations based on orders with status 'Completed'. COGS includes only items where cost price was recorded.</small>
+    </div>
+</div>
+
+{% endblock %}

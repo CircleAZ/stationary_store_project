@@ -1,0 +1,47 @@
+{# reports/templates/reports/sales_by_product_report.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Sales by Product" }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">{{ page_title|default:"Sales by Product" }}</h1>
+    {# Link back to main reports summary #}
+    <a href="{% url 'reports:sales_summary' %}" class="btn btn-secondary btn-sm">« Back to Sales Summary</a>
+</div>
+
+{# Add Date Range Filters later #}
+{# <div class="card mb-4"><div class="card-body">Date Filters Go Here</div></div> #}
+
+{% if products_sales_data %}
+  <div class="table-responsive">
+    <table class="table table-striped table-hover">
+      <thead>
+        <tr>
+          <th scope="col">Product</th>
+          <th scope="col">Category</th>
+          <th scope="col" class="text-center">Quantity Sold</th>
+          <th scope="col" class="text-end">Total Revenue</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products_sales_data %} {# Loop through annotated products #}
+          <tr>
+            <td>
+              <a href="{% url 'inventory:product_detail' pk=product.pk %}">{{ product.name }}</a>
+            </td>
+            <td>{{ product.category.name|default:"N/A" }}</td>
+            <td class="text-center">{{ product.total_quantity_sold }}</td>
+            <td class="text-end">₹{{ product.total_revenue|floatformat:2 }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-info" role="alert">
+    No product sales data found for the selected criteria.
+  </div>
+{% endif %}
+
+{% endblock %}
