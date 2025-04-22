@@ -7,8 +7,10 @@
     {# Add product image here later if needed #}
     <div class="card-header">
       <h1 class="card-title">{{ product.name }}</h1>
-      {% if product.manufacturer %}
-        <h6 class="card-subtitle text-muted">{{ product.manufacturer }}</h6>
+      {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+        {% if product.manufacturer %}
+          <h6 class="card-subtitle text-muted">{{ product.manufacturer }}</h6>
+        {% endif %}
       {% endif %}
 
       {% if product.category %}
@@ -25,8 +27,10 @@
       <h4>Details:</h4>
       <ul class="list-unstyled"> {# Use unstyled list for better spacing #}
         <li><strong>Selling Price:</strong> ₹{{ product.selling_price }}</li>
-        {% if product.cost_price %}
-          <li><strong>Cost Price:</strong> ₹{{ product.cost_price }}</li>
+        {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+            {% if product.cost_price %}
+              <li><strong>Cost Price:</strong> ₹{{ product.cost_price|floatformat:2 }}</li>
+            {% endif %}
         {% endif %}
         <li><strong>Stock Quantity:</strong> {{ product.stock_quantity }}</li>
         <li><strong>Added On:</strong> {{ product.created_at|date:"D, d M Y" }}</li>
@@ -36,14 +40,10 @@
     </div>
     <div class="card-footer">
         <a href="{% url 'inventory:product_list' %}" class="btn btn-secondary"> « Back to Product List</a>
-        {# --- ADD EDIT BUTTON --- #}
-        <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-primary">
-             <i class="fas fa-edit"></i> Edit Product {# Optional: Font Awesome icon #}
-        </a>
-        {# --- END EDIT BUTTON --- #}
-        <a href="{% url 'inventory:product_delete' pk=product.pk %}" class="btn btn-danger">
-            <i class="fas fa-trash-alt"></i> Delete Product
-        </a>
+        {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+       <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-primary"> <i class="fas fa-edit"></i> Edit Product </a>
+       <a href="{% url 'inventory:product_delete' pk=product.pk %}" class="btn btn-danger"> <i class="fas fa-trash-alt"></i> Delete Product </a>
+       {% endif %}
      </div>
   </div>
 {% endblock %}

@@ -3,6 +3,10 @@ from .models import Product, Category
 from .forms import ProductForm # <-- Import the form
 from django.db.models import F
 from django.contrib import messages # <-- Import messages framework
+from django.core.exceptions import PermissionDenied
+
+def user_in_group(user, group_name):
+     return user.groups.filter(name=group_name).exists()
 
 # Modified product_list_view
 def product_list_view(request, category_slug=None): # Add category_slug=None as optional argument
@@ -64,6 +68,10 @@ def product_add_view(request):
     Handles displaying the form to add a new product (GET)
     and processing the submitted form data (POST).
     """
+
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+        raise PermissionDenied
+
     if request.method == 'POST':
         # If the form was submitted, process the data
         form = ProductForm(request.POST) # Bind data from the request to the form
@@ -95,6 +103,9 @@ def product_edit_view(request, pk):
     Handles displaying the form pre-filled with an existing product's data (GET)
     and processing the submitted form data to update the product (POST).
     """
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+        raise PermissionDenied
+
     # Get the specific product object we want to edit, or return 404 if not found
     product = get_object_or_404(Product, pk=pk)
 
@@ -129,6 +140,9 @@ def product_delete_view(request, pk):
     Handles displaying the confirmation page for deleting a product (GET)
     and performing the actual deletion upon confirmation (POST).
     """
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+        raise PermissionDenied
+
     product = get_object_or_404(Product, pk=pk)
 
     if request.method == 'POST':

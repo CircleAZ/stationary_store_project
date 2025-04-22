@@ -21,19 +21,21 @@
             <ul class="navbar-nav">
               
               {# --- NEW Settings Link (conditional for staff) --- #}
-         {% if user.is_staff %}
-         <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Settings
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="settingsDropdown">
-              <li><a class="dropdown-item" href="{% url 'core:store_settings' %}">Store Details</a></li>
-              {# Add links for User Management, Tax, etc. here later #}
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="{% url 'admin:index' %}">Admin Site</a></li>
-            </ul>
-          </li>
-          {% endif %}
+            {% if user.is_authenticated %}
+              {# Only show Settings to Managers or Superusers (stricter than just is_staff) #}
+              {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+              <li class="nav-item dropdown">
+                 <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                   Settings
+                 </a>
+                 <ul class="dropdown-menu" aria-labelledby="settingsDropdown">
+                   <li><a class="dropdown-item" href="{% url 'core:store_settings' %}">Store Details</a></li>
+                   <li><hr class="dropdown-divider"></li>
+                   <li><a class="dropdown-item" href="{% url 'admin:index' %}">Admin Site</a></li>
+                 </ul>
+               </li>
+               {% endif %}
+           {% endif %}
      {# --- END Settings Link --- #}
               
               <li class="nav-item">
@@ -51,9 +53,14 @@
                 <a class="nav-link" href="{% url 'orders:order_list' %}">Orders</a> 
              </li>
 
-             <li class="nav-item">
-              <a class="nav-link" href="{% url 'reports:sales_summary' %}">Reports</a>
-           </li>
+             {% if user.is_authenticated %}
+        {# Only show Reports to Managers or Superusers #}
+        {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+          <li class="nav-item">
+             <a class="nav-link" href="{% url 'reports:sales_summary' %}">Reports</a>
+          </li>
+        {% endif %}
+     {% endif %}
               {# Add more navigation links later (Dashboard etc.) #}
             </ul>
         </div>

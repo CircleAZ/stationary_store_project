@@ -40,11 +40,11 @@
             All Products
           {% endif %}
         </h1>
-         {# --- ADD BUTTON --- #}
-         <a href="{% url 'inventory:product_add' %}" class="btn btn-primary">
-           <i class="fas fa-plus"></i> Add New Product {# Optional: Font Awesome icon #}
-         </a>
-         {# --- END BUTTON --- #}
+        {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+        <a href="{% url 'inventory:product_add' %}" class="btn btn-primary">
+          <i class="fas fa-plus"></i> Add New Product
+        </a>
+        {% endif %}
       </div>
       {# --- END Heading modification --- #}
 
@@ -60,8 +60,10 @@
                       {{ product.name }}
                     </a>
                   </h5>
-                  {% if product.manufacturer %}
-                    <h6 class="card-subtitle mb-2 text-muted">{{ product.manufacturer }}</h6>
+                  {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+                    {% if product.manufacturer %}
+                      <h6 class="card-subtitle mb-2 text-muted">{{ product.manufacturer }}</h6>
+                    {% endif %}
                   {% endif %}
                   {# --- Display category IN card (Optional, maybe remove if obvious from heading/filter) --- #}
                   {% if product.category %}
@@ -73,9 +75,11 @@
                   {% endif %}
                   <ul class="list-group list-group-flush mt-auto"> {# Removed mt-auto if description handles space #}
                      <li class="list-group-item">Price: ₹{{ product.selling_price }}</li>
-                     {% if product.cost_price %}
-                       <li class="list-group-item">Cost: ₹{{ product.cost_price }}</li>
-                     {% endif %}
+                     {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+                        {% if product.cost_price %}
+                          <li class="list-group-item">Cost: ₹{{ product.cost_price|floatformat:2 }}</li>
+                        {% endif %}
+                      {% endif %}
                       <li class="list-group-item">Stock: {{ product.stock_quantity }}</li>
                   </ul>
                 </div>

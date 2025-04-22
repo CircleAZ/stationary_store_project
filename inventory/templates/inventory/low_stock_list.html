@@ -12,10 +12,10 @@
           <tr>
             <th scope="col">Product Name</th>
             <th scope="col">Category</th>
-            <th scope="col">Manufacturer</th>
+            {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}<th>Manufacturer</th>{% endif %}
             <th scope="col" class="text-end">Current Stock</th> {# text-end aligns numbers #}
             <th scope="col" class="text-end">Low Stock Threshold</th>
-            <th scope="col">Actions</th>
+            {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}<th>Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -25,14 +25,15 @@
                 <a href="{% url 'inventory:product_detail' pk=product.pk %}">{{ product.name }}</a>
               </td>
               <td>{{ product.category.name|default:"N/A" }}</td> {# Use default filter if no category #}
-              <td>{{ product.manufacturer|default:"N/A" }}</td>
+              {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}<td>{{ product.manufacturer|default:"N/A" }}</td>{% endif %}
               <td class="text-end">{{ product.stock_quantity }}</td>
               <td class="text-end">{{ product.low_stock_threshold }}</td>
               <td>
-                {# Link to edit product in admin (useful for now) #}
-                <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-sm btn-outline-secondary"> {# Removed target="_blank" #}
-                  Edit Stock/Details
-                </a>
+                {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+              <td>
+                <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-sm btn-outline-secondary"> Edit Stock/Details </a>
+              </td>
+              {% endif %}
                 {# Add quick stock update buttons later? #}
               </td>
             </tr>

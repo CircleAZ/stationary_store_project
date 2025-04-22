@@ -13,8 +13,12 @@ from django.contrib import messages
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger # For pagination
 from .forms import OrderStatusUpdateForm 
 from django.views.decorators.http import require_POST
+from django.core.exceptions import PermissionDenied
 
 # Create your views here.
+def user_in_group(user, group_name):
+     return user.groups.filter(name=group_name).exists()
+
 
 @login_required
 def order_create_view(request):
@@ -23,6 +27,12 @@ def order_create_view(request):
     Passes active payment methods to the template.
     """
     # Fetch active payment methods to populate the dropdown
+    
+    is_manager = user_in_group(request.user, 'Manager')
+    is_salesman = user_in_group(request.user, 'Salesman')
+    if not (is_manager or is_salesman or request.user.is_superuser):
+        raise PermissionDenied
+
     payment_methods = PaymentMethod.objects.filter(is_active=True)
 
     context = {
@@ -37,6 +47,11 @@ def customer_search_api(request):
     API endpoint to search for customers based on a query parameter 'q'.
     Returns customer data as JSON.
     """
+    is_manager = user_in_group(request.user, 'Manager')
+    is_salesman = user_in_group(request.user, 'Salesman')
+    if not (is_manager or is_salesman or request.user.is_superuser):
+        raise PermissionDenied
+
     query = request.GET.get('q', None) # Get the search query from GET params
     customers_data = [] # Initialize empty list for results
 
@@ -131,6 +146,11 @@ def payment_method_add_modal_api(request):
 @login_required
 def order_create_api(request):
     """ API endpoint to receive POS data and create an order. """
+    is_manager = user_in_group(request.user, 'Manager')
+    is_salesman = user_in_group(request.user, 'Salesman')
+    if not (is_manager or is_salesman or request.user.is_superuser):
+        raise PermissionDenied
+    
     if request.method == 'POST':
         try:
             # Decode JSON data sent from JavaScript

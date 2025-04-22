@@ -5,10 +5,17 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required # Protect view
 from .models import StoreDetail
 from .forms import StoreDetailForm
+from django.core.exceptions import PermissionDenied
+
+def user_in_group(user, group_name):
+     return user.groups.filter(name=group_name).exists()
 
 @staff_member_required # Only staff/superusers can access settings
 def store_settings_view(request):
     """ Displays and handles updates for store details. """
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+        raise PermissionDenied
+    
     page_title = "Store Settings"
 
     # Get the single instance, or create if it doesn't exist (should exist from admin setup)

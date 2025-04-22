@@ -9,10 +9,18 @@ from orders.models import Order, OrderItem
 from inventory.models import Product  
 from customers.models import Customer
 from .forms import DateRangeForm
+from django.core.exceptions import PermissionDenied # Import PermissionDenied
+
+def user_in_group(user, group_name):
+    """ Helper function to check if a user is in a specific group """
+    return user.groups.filter(name=group_name).exists()
 
 @login_required
 def sales_summary_report_view(request):
     """ Generates and displays a sales summary report based on different periods. """
+    
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+        raise PermissionDenied # Raise 403 Forbidden if not in group or superuser
     page_title = "Sales Summary Report"
     today = timezone.localdate()
     start_of_week = today - timezone.timedelta(days=today.weekday())
@@ -114,6 +122,9 @@ def sales_summary_report_view(request):
 @login_required
 def sales_by_product_report_view(request):
     """ Generates a report summarizing sales data grouped by product. """
+    
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+        raise PermissionDenied
     page_title = "Sales by Product Report"
 
     # Define relevant order statuses for sales calculation
@@ -164,6 +175,9 @@ def sales_by_product_report_view(request):
 @login_required
 def sales_by_customer_report_view(request):
     """ Generates a report summarizing sales data grouped by customer. """
+
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+         raise PermissionDenied
     page_title = "Sales by Customer Report"
 
     # Define relevant order statuses for sales calculation
@@ -201,6 +215,9 @@ def sales_by_customer_report_view(request):
 @login_required
 def profit_loss_report_view(request):
     """ Calculates and displays a basic profit and loss overview. """
+    if not (user_in_group(request.user, 'Manager') or request.user.is_superuser):
+         raise PermissionDenied
+    
     page_title = "Profit & Loss Overview"
 
     # Define relevant order statuses for P&L (usually Completed)
