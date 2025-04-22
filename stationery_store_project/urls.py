@@ -18,6 +18,9 @@ from django.contrib import admin
 from django.urls import path, include # Make sure 'include' is imported
 
 from orders import views as order_views # Alias to avoid name clashes if needed
+from django.conf import settings
+from django.conf.urls.static import static
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -44,5 +47,13 @@ urlpatterns = [
     path('reports/', include('reports.urls')),
     # We'll add path for core app later
 
-    
+    path('', include('core.urls')),
 ]
+
+if settings.DEBUG:
+    # Add static files serving pattern (might already exist)
+    # urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) # Usually handled automatically if using runserver with DEBUG=True
+
+    # Add media files serving pattern
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# --- End Serving ---

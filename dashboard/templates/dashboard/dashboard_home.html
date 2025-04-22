@@ -55,15 +55,18 @@
     </div>
 </div> {# End Quick Access Row #}
 
-{# Charts Row (Placeholder) #}
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm">
-            <div class="card-header">Reports Overview</div>
+            <div class="card-header">Top 5 Selling Products (by Quantity)</div> {# Updated Header #}
             <div class="card-body">
-                <p class="text-muted">Charts and detailed report summaries will appear here.</p>
-                {# Placeholder for a chart canvas #}
-                {# <canvas id="topSellingChart"></canvas> #}
+                {# --- ADD CANVAS for Chart --- #}
+                {% if top_products_labels %}
+                    <canvas id="topSellingChart"></canvas>
+                {% else %}
+                     <p class="text-muted">No sales data available yet to display chart.</p>
+                {% endif %}
+                 {# --- END CANVAS --- #}
             </div>
         </div>
     </div>
@@ -72,11 +75,69 @@
 {% endblock %}
 
 {% block extra_js %}
-{# We might add JS later for charts #}
+
+{# Data passed from view using json_script #}
+{{ top_products_labels|json_script:"top-products-labels-data" }}
+{{ top_products_values|json_script:"top-products-values-data" }}
+
 <script>
- console.log("Dashboard loaded.");
- // Example: Chart.js later
- // const ctx = document.getElementById('topSellingChart');
- // new Chart(ctx, { ... config ... });
-</script>
+    document.addEventListener('DOMContentLoaded', function() {
+       console.log("Dashboard loaded. Attempting to render chart...");
+   
+       // --- Get Data Elements FIRST ---
+       const labelsDataElement = document.getElementById('top-products-labels-data');
+       const valuesDataElement = document.getElementById('top-products-values-data');
+   
+       // --- Log if elements were found ---
+       console.log("Labels data element found:", labelsDataElement ? 'YES' : 'NO');
+       console.log("Values data element found:", valuesDataElement ? 'YES' : 'NO');
+   
+       // --- Get JSON content ONCE using the element variables ---
+       const labelsJson = labelsDataElement?.textContent;
+       const valuesJson = valuesDataElement?.textContent;
+   
+       // --- Log the retrieved JSON strings ---
+       console.log("Labels JSON String:", labelsJson);
+       console.log("Values JSON String:", valuesJson);
+   
+       // Check if we got the JSON strings
+       if (labelsJson && valuesJson) {
+           try {
+               const topProductsLabels = JSON.parse(labelsJson);
+               const topProductsValues = JSON.parse(valuesJson);
+   
+               console.log("Parsed Labels:", topProductsLabels);
+               console.log("Parsed Values:", topProductsValues);
+   
+               // Check if parsed data is valid arrays with content
+               if (Array.isArray(topProductsLabels) && topProductsLabels.length > 0 &&
+                   Array.isArray(topProductsValues) && topProductsValues.length > 0) {
+   
+                   const ctx = document.getElementById('topSellingChart');
+                   console.log("Canvas Element:", ctx ? 'Found' : 'NOT FOUND'); // Check canvas
+   
+                   if (ctx) {
+                       // --- Chart Initialization (Keep this as is) ---
+                       new Chart(ctx, {
+                           type: 'bar',
+                           data: { /* ... data ... */ },
+                           options: { /* ... options ... */ }
+                       });
+                       console.log("Top selling chart rendered successfully.");
+                       // --- End Chart Initialization ---
+                   } else {
+                        console.warn("Canvas element 'topSellingChart' NOT found.");
+                   }
+               } else {
+                    console.log("Parsed data is not valid or empty arrays for chart.");
+               }
+           } catch (e) {
+               console.error("Error parsing chart data JSON or rendering chart:", e);
+           }
+       } else {
+            console.warn("Chart data script elements (#top-products-labels-data or #top-products-values-data) not found or empty.");
+       }
+   
+    }); // End DOMContentLoaded
+   </script>
 {% endblock %}

@@ -2,6 +2,10 @@ asgiref==3.8.1
 crispy-bootstrap5==2025.4
 Django==5.2
 django-crispy-forms==2.4
+narwhals==1.35.0
+packaging==24.2
+pillow==11.2.1
+plotly==6.0.1
 python-dotenv==1.1.0
 sqlparse==0.5.3
 tzdata==2025.2

@@ -138,3 +138,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 # CRISPY_TEMPLATE_PACK = "bootstrap5"
+
+MEDIA_URL = '/media/' # URL prefix for media files
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media') # Absolute path to the media directory

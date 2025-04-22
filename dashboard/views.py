@@ -3,10 +3,10 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
  
  # Import models needed later
-from orders.models import Order
+from orders.models import Order, OrderItem
 from inventory.models import Product
 from django.utils import timezone
-from django.db.models import Sum, Count, F, DecimalField, Value
+from django.db.models import Sum, Count, F, DecimalField, Value, CharField
 from decimal import Decimal
 from django.db.models.functions import Coalesce
  
@@ -42,11 +42,41 @@ def dashboard_view(request):
          # Optional: Add filter(is_active=True) if applicable
      ).count()
  
+     relevant_order_statuses = [Order.ORDER_STATUS_COMPLETED, Order.ORDER_STATUS_PROCESSING]
+ 
+     # Query OrderItems, group by product, sum quantity, order, limit
+     top_products_data = OrderItem.objects.filter(
+         order__status__in=relevant_order_statuses,
+         product__isnull=False # Ensure product link exists
+     ).values(
+         'product__name' # Group by product name
+     ).annotate(
+         total_quantity=Sum('quantity') # Sum quantities for each product
+     ).order_by(
+         '-total_quantity' # Order by most sold first
+     )[:5] # Limit to top 5
+ 
+     print("--- Top Products Query Results ---")
+     print(top_products_data) # Print the QuerySet result
+     print(f"Found {len(top_products_data)} top products.")
+
+     # Prepare data specifically for Chart.js
+     top_products_labels = [item['product__name'] for item in top_products_data]
+     top_products_values = [item['total_quantity'] for item in top_products_data]
+     # --- END Top Selling Products Data ---
+
+     print("Labels:", top_products_labels) # Print the extracted labels
+     print("Values:", top_products_values) # Print the extracted values
+     print("--------------------------------")
+
  
      context = {
-         'page_title': 'Dashboard',
-         'todays_sales': todays_sales,          # Pass calculated value
-         'pending_orders_count': pending_orders_count, # Pass calculated value
-         'low_stock_count': low_stock_count,       # Pass calculated value
+        'page_title': 'Dashboard',
+        'todays_sales': todays_sales,
+        'pending_orders_count': pending_orders_count,
+        'low_stock_count': low_stock_count,
+        # --- Add Chart Data to Context ---
+        'top_products_labels': top_products_labels,
+        'top_products_values': top_products_values,
      }
      return render(request, 'dashboard/dashboard_home.html', context)

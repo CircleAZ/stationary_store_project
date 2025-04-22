@@ -1,0 +1,52 @@
+{# core/templates/core/store_settings_form.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title|default:"Store Settings" }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ page_title|default:"Store Settings" }}</h1>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                {# Use multipart/form-data for file uploads #}
+                <form method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+
+                    {# Render form using Manual Loop #}
+                    {% for field in form %}
+                        <div class="mb-3">
+                            {{ field.label_tag }}
+
+                            {# Special handling for logo to show current image #}
+                            {% if field.name == 'logo' and store_detail.logo %}
+                                <div class="mb-2">
+                                    <label class="form-label small text-muted">Current Logo:</label><br>
+                                    <img src="{{ store_detail.logo.url }}" alt="Current Store Logo" style="max-height: 80px; max-width: 200px; border: 1px solid #ccc;">
+                                </div>
+                            {% endif %}
+
+                            {{ field }} {# Render input #}
+
+                            {% if field.help_text %}
+                                <small class="form-text text-muted">{{ field.help_text }}</small>
+                            {% endif %}
+                            {% for error in field.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-success">Save Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {# Optional: Add a preview column or help text #}
+    {# <div class="col-md-4"> ... </div> #}
+</div> {# End Row #}
+
+{% endblock %}
