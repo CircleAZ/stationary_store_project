@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load auth_extras %}
 
 {% block title %}Low Stock Items{% endblock %}
 
@@ -12,10 +13,10 @@
           <tr>
             <th scope="col">Product Name</th>
             <th scope="col">Category</th>
-            {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}<th>Manufacturer</th>{% endif %}
+            {% if user.is_superuser or user|has_group:"Manager" %}<th>Manufacturer</th>{% endif %}
             <th scope="col" class="text-end">Current Stock</th> {# text-end aligns numbers #}
             <th scope="col" class="text-end">Low Stock Threshold</th>
-            {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}<th>Actions</th>{% endif %}
+            {% if user.is_superuser or user|has_group:"Manager" %}<th>Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -25,11 +26,11 @@
                 <a href="{% url 'inventory:product_detail' pk=product.pk %}">{{ product.name }}</a>
               </td>
               <td>{{ product.category.name|default:"N/A" }}</td> {# Use default filter if no category #}
-              {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}<td>{{ product.manufacturer|default:"N/A" }}</td>{% endif %}
+              {% if user.is_superuser or user|has_group:"Manager" %}<td>{{ product.manufacturer|default:"N/A" }}</td>{% endif %}
               <td class="text-end">{{ product.stock_quantity }}</td>
               <td class="text-end">{{ product.low_stock_threshold }}</td>
               <td>
-                {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+                {% if user.is_superuser or user|has_group:"Manager" %}
               <td>
                 <a href="{% url 'inventory:product_edit' pk=product.pk %}" class="btn btn-sm btn-outline-secondary"> Edit Stock/Details </a>
               </td>

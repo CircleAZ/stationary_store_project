@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
   <head> 
+    {% load auth_extras %}
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -23,7 +24,7 @@
               {# --- NEW Settings Link (conditional for staff) --- #}
             {% if user.is_authenticated %}
               {# Only show Settings to Managers or Superusers (stricter than just is_staff) #}
-              {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+              {% if user.is_superuser or user|has_group:"Manager" %}
               <li class="nav-item dropdown">
                  <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                    Settings
@@ -55,7 +56,7 @@
 
              {% if user.is_authenticated %}
         {# Only show Reports to Managers or Superusers #}
-        {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+        {% if user.is_superuser or user|has_group:"Manager" %}
           <li class="nav-item">
              <a class="nav-link" href="{% url 'reports:sales_summary' %}">Reports</a>
           </li>
@@ -63,6 +64,34 @@
      {% endif %}
               {# Add more navigation links later (Dashboard etc.) #}
             </ul>
+            {# --- ADD LOGIN/LOGOUT --- #}
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0"> {# ms-auto pushes this block right #}
+             {% if user.is_authenticated %}
+                <li class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Welcome, {{ user.get_full_name|default:user.username }}
+                  </a>
+                  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                    {# Add links to profile, change password later? #}
+                    {# <li><a class="dropdown-item" href="#">My Profile</a></li> #}
+                    {# <li><a class="dropdown-item" href="{% url 'password_change' %}">Change Password</a></li> #}
+                    {# <li><hr class="dropdown-divider"></li> #}
+                    <li>
+                        {# Use a small form for logout for security (prevents GET logout) #}
+                        <form action="{% url 'logout' %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item">Logout</button>
+                        </form>
+                    </li>
+                  </ul>
+                </li>
+            {% else %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'login' %}?next={{ request.path|urlencode }}">Login</a> {# Include next parameter #}
+                </li>
+            {% endif %}
+        </ul>
+        {# --- END LOGIN/LOGOUT --- #}
         </div>
       </div>
     </nav>

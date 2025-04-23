@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load auth_extras %}
 
 {% block title %}
   {% if current_category %}{{ current_category.name }} Products{% else %}Our Products{% endif %}
@@ -40,7 +41,7 @@
             All Products
           {% endif %}
         </h1>
-        {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+        {% if user.is_superuser or user|has_group:"Manager" %}
         <a href="{% url 'inventory:product_add' %}" class="btn btn-primary">
           <i class="fas fa-plus"></i> Add New Product
         </a>
@@ -60,7 +61,7 @@
                       {{ product.name }}
                     </a>
                   </h5>
-                  {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+                  {% if user.is_superuser or user|has_group:"Manager" %}
                     {% if product.manufacturer %}
                       <h6 class="card-subtitle mb-2 text-muted">{{ product.manufacturer }}</h6>
                     {% endif %}
@@ -75,7 +76,7 @@
                   {% endif %}
                   <ul class="list-group list-group-flush mt-auto"> {# Removed mt-auto if description handles space #}
                      <li class="list-group-item">Price: ₹{{ product.selling_price }}</li>
-                     {% if user.is_superuser or user.groups.all|join:','|find:'Manager' != -1 %}
+                     {% if user.is_superuser or user|has_group:"Manager" %}
                         {% if product.cost_price %}
                           <li class="list-group-item">Cost: ₹{{ product.cost_price|floatformat:2 }}</li>
                         {% endif %}
