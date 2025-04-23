@@ -16,7 +16,12 @@
             <i class="fas fa-edit"></i> Edit Items
         </button>
         {% endif %}
-
+        {% if order.status == order.ORDER_STATUS_COMPLETED or order.status == order.ORDER_STATUS_PROCESSING %}
+             <a href="{% url 'orders:order_return_initiate' pk=order.pk %}" class="btn btn-info btn-sm me-2">
+                 <i class="fas fa-undo"></i> Process Return
+             </a>
+        {% endif %}
+        {# ...Add Print Receipt Button ... #}
     </div>
   </div>
 
@@ -90,8 +95,13 @@
              <dt class="col-sm-4">Amount Paid:</dt>
              <dd class="col-sm-8">₹{{ order.amount_paid|floatformat:2 }}</dd>
 
+             {% if order.refunded_amount > 0 %}
+             <dt class="col-sm-4">Amount Refunded:</dt>
+             <dd class="col-sm-8 text-danger">- ₹{{ order.refunded_amount|floatformat:2 }}</dd>
+             {% endif %}
+
              <dt class="col-sm-4">Amount Due:</dt>
-             <dd class="col-sm-8">₹{{ amount_due|floatformat:2 }}</dd>
+             <dd class="col-sm-8 {% if amount_due > 0 %}text-danger fw-bold{% endif %}">₹{{ amount_due|floatformat:2 }}</dd>
 
           </dl>
 
@@ -165,7 +175,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in order.items.all %} {# Access prefetched items #}
+                    {% for item in order_items_processed %} {# Access prefetched items #}
                      <tr>
                         <td>
                             {{ item.product_name }} {# Show name snapshot #}
@@ -175,7 +185,11 @@
                             <small class="text-muted"> (Product Deleted)</small>
                             {% endif %}
                         </td>
-                        <td class="text-center">{{ item.quantity }}</td>
+                        <td class="text-center">
+                            {{ item.quantity }}
+                            {% if item.total_returned > 0 %}
+                                <span class="badge bg-secondary ms-1" title="Quantity Returned">-{{ item.total_returned }}</span>
+                            {% endif %}</td>
                         <td class="text-end">₹{{ item.price|floatformat:2 }}</td>
                         <td class="text-end">₹{{ item.get_cost|floatformat:2 }}</td>
                      </tr>

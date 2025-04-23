@@ -1,0 +1,73 @@
+{# orders/templates/orders/order_return_initiate.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">{{ page_title }}</h1>
+
+<p>Select the items and quantities you wish to return from Order #{{ order.order_id|stringformat:".8s" }}.</p>
+
+{# Form to submit selected return items (action points to processing view later) #}
+<form method="post" action="{% url 'orders:order_return_process' pk=order.pk %}"> {# <-- Placeholder action #}
+    {% csrf_token %}
+    <div class="card shadow-sm">
+        <div class="card-header">Items Available for Return</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="text-center">Ordered Qty</th>
+                        <th class="text-end">Price/Unit</th>
+                        <th class="text-center" style="width: 15%;">Return Qty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.items.all %}
+                     <tr>
+                        <td>
+                            {{ item.product_name }}
+                            {% if item.product %}<small class="text-muted"> ({{ item.product.pk }})</small>{% endif %}
+                        </td>
+                        <td class="text-center">{{ item.quantity }}</td>
+                        <td class="text-end">₹{{ item.price|floatformat:2 }}</td>
+                        <td class="text-center">
+                            {# Input for return quantity #}
+                            {# Name includes item PK to identify which item is being returned #}
+                            <input type="number" name="return_qty_{{ item.pk }}"
+                                   class="form-control form-control-sm return-qty-input"
+                                   value="0" min="0" max="{{ item.quantity }}" {# Max is original qty #}
+                                   style="width: 80px; display: inline-block;">
+                            <input type="hidden" name="order_item_pk" value="{{ item.pk }}"> {# Send item PK #}
+                        </td>
+                     </tr>
+                    {% empty %}
+                      <tr><td colspan="4" class="text-center text-muted">No items found in this order.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div> {# End table responsive #}
+         <div class="card-body border-top">
+             <div class="mb-3">
+                 <label for="return_reason" class="form-label">Reason for Return (Optional):</label>
+                 <textarea name="reason" id="return_reason" rows="3" class="form-control form-control-sm"></textarea>
+             </div>
+             {# Placeholder for calculated refund amount display? Needs JS #}
+             {# <p>Estimated Refund: ₹<span id="estimated-refund">0.00</span></p> #}
+         </div>
+         <div class="card-footer text-end">
+             <a href="{% url 'orders:order_detail' pk=order.pk %}" class="btn btn-secondary">Cancel</a>
+             <button type="submit" class="btn btn-primary">Process Return</button> {# Submit button #}
+         </div>
+    </div> {# End Card #}
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+{# Add JS later if needed for validation or refund calculation #}
+<script>
+ console.log("Return initiate page loaded.");
+</script>
+{% endblock %}

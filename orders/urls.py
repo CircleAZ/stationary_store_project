@@ -14,5 +14,7 @@ urlpatterns = [
     path('<uuid:pk>/add_payment/', views.order_add_payment_view, name='order_add_payment'),
     path('<uuid:pk>/api/items/', views.order_get_items_api, name='api_order_get_items'),
     path('<uuid:pk>/api/update_items/', views.order_update_items_api, name='api_order_update_items'),
+    path('<uuid:pk>/return/initiate/', views.order_return_initiate_view, name='order_return_initiate'),
+    path('<uuid:pk>/return/process/', views.order_return_process_view, name='order_return_process'),
     
 ]

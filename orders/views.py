@@ -6,7 +6,7 @@ from django.db.models import Q, F
 import json
 from django.db import transaction
 from decimal import Decimal, InvalidOperation # <-- IMPORT Decimal AND InvalidOperation
-from .models import PaymentMethod, Order, OrderItem # <-- IMPORT Order and OrderItem
+from .models import OrderReturn, PaymentMethod, Order, OrderItem, ReturnItem # <-- IMPORT Order and OrderItem
 from customers.models import Customer
 from inventory.models import Product
 from django.contrib import messages
@@ -350,15 +350,63 @@ def order_detail_view(request, pk):
 
     # --- Calculate amount due ---
     
-    amount_due = max(order.total_amount - order.amount_paid, Decimal('0.00'))
+    net_paid = (order.amount_paid or Decimal('0.00')) - (order.refunded_amount or Decimal('0.00'))
+    amount_due = max((order.total_amount or Decimal('0.00')) - net_paid, Decimal('0.00'))
     # --- End calculation ---
 
     status_update_form = OrderStatusUpdateForm(initial={'status': order.status})
 
+    # --- Revised Financial Calculations ---
+
+    # 1. Calculate total value of returned items
+    total_returned_value = Decimal('0.00')
+    order_items_with_returns = [] # Still need this list for item display
+    for item in order.items.all():
+        total_returned_for_item = sum(r.quantity_returned for r in item.returned_items.all())
+        if total_returned_for_item > 0:
+            # Use the item's original price for calculating return value
+            total_returned_value += (item.price * total_returned_for_item)
+        # Prepare item for template display (add temporary attributes)
+        item.total_returned = total_returned_for_item
+        item.quantity_available = item.quantity - total_returned_for_item
+        order_items_with_returns.append(item)
+
+    # 2. Calculate "Second Total" (Value of goods kept)
+    # Use the stored order.total_amount which already includes discounts/taxes from creation
+    initial_total = order.total_amount or Decimal('0.00')
+    second_total = initial_total - total_returned_value
+    second_total = max(second_total, Decimal('0.00')) # Ensure not negative
+
+    # 3. Get Amount Paid (this doesn't change unless new payments added)
+    amount_paid = order.amount_paid or Decimal('0.00')
+    # Note: order.refunded_amount stores cumulative actual refunds issued previously,
+    # we are calculating what *should* be refunded based on current state.
+
+    # 4. Determine Amount Due & Refund Amount Based on New Logic
+    amount_due = Decimal('0.00')
+    refund_due_to_customer = Decimal('0.00') # How much we owe the customer back
+
+    if amount_paid > second_total:
+        # Customer paid more than the value of goods kept
+        refund_due_to_customer = amount_paid - second_total
+        amount_due = Decimal('0.00') # Nothing more is due from customer
+    elif amount_paid < second_total:
+        # Customer paid less than the value of goods kept
+        amount_due = second_total - amount_paid
+        refund_due_to_customer = Decimal('0.00')
+    else: # amount_paid == second_total
+        amount_due = Decimal('0.00')
+        refund_due_to_customer = Decimal('0.00')
+
+    # --- End Revised Calculations ---
+
     context = {
         'order': order,
-        'amount_due': amount_due,
-        'status_update_form': status_update_form, # <-- Pass form to context
+        'amount_due': amount_due, # Now calculated based on second_total
+        'refund_due_to_customer': refund_due_to_customer, # Amount we should refund
+        'second_total': second_total, # Optional: pass this for display if needed
+        'status_update_form': status_update_form,
+        'order_items_processed': order_items_with_returns, # Pass processed items
         'page_title': f'Order Details {str(order.pk)[:8]}'
     }
     return render(request, 'orders/order_detail.html', context)
@@ -612,3 +660,160 @@ def order_update_items_api(request, pk):
     except Exception as e:
         print(f"Error updating order items for {pk}: {e}") # Log error
         return JsonResponse({'success': False, 'error': 'An unexpected error occurred while updating items.'}, status=500)
+
+@login_required
+def order_return_initiate_view(request, pk):
+    """ Displays form to select items and quantities for returning from an order. """
+    order = get_object_or_404(
+        Order.objects.prefetch_related('items', 'items__product'), # Need items
+        pk=pk
+    )
+    page_title = f"Initiate Return for Order {str(order.pk)[:8]}"
+
+    # --- Validation: Check if order can be returned ---
+    if order.status not in [Order.ORDER_STATUS_COMPLETED, Order.ORDER_STATUS_PROCESSING]:
+         messages.error(request, "Returns can only be initiated for Completed or Processing orders.")
+         return redirect('orders:order_detail', pk=order.pk)
+
+    # For now, just display the items. Form handling comes next.
+    # We'll need a Django Form or FormSet to handle input later.
+    context = {
+        'order': order,
+        'page_title': page_title,
+    }
+    return render(request, 'orders/order_return_initiate.html', context)
+
+@login_required
+@require_POST # This view handles the POST submission
+def order_return_process_view(request, pk):
+    """ Processes the submitted return request form for a specific order. """
+    order = get_object_or_404(Order.objects.select_related('customer'), pk=pk) # Get related customer if needed
+
+    # --- Validation: Check if order can be returned ---
+    if order.status not in [Order.ORDER_STATUS_COMPLETED, Order.ORDER_STATUS_PROCESSING]:
+         messages.error(request, "Returns can only be processed for Completed or Processing orders.")
+         return redirect('orders:order_detail', pk=order.pk)
+
+    # --- Process Form Data ---
+    return_reason = request.POST.get('reason', '')
+    items_to_return_data = [] # Store data like {'order_item_pk': pk, 'return_qty': qty}
+    total_estimated_refund = Decimal('0.00')
+    has_items_to_return = False
+
+    # Extract item PKs and quantities from POST data
+    # Input names are like 'return_qty_ITEMPK'
+    for key, value in request.POST.items():
+        if key.startswith('return_qty_'):
+            try:
+                return_qty = int(value)
+                if return_qty > 0: # Only process if quantity is positive
+                    order_item_pk = int(key.split('_')[-1])
+                    items_to_return_data.append({'order_item_pk': order_item_pk, 'return_qty': return_qty})
+                    has_items_to_return = True
+            except (ValueError, TypeError):
+                messages.error(request, f"Invalid quantity entered for an item.")
+                return redirect('orders:order_return_initiate', pk=order.pk) # Redirect back to form
+
+    if not has_items_to_return:
+         messages.warning(request, "No items selected for return.")
+         return redirect('orders:order_return_initiate', pk=order.pk)
+
+    # --- Database Operations in a Transaction ---
+    try:
+        with transaction.atomic():
+            # 1. Create the main OrderReturn record
+            order_return = OrderReturn.objects.create(
+                order=order,
+                reason=return_reason,
+                requested_by=request.user,
+                status=OrderReturn.RETURN_STATUS_PROCESSING # Or 'Approved' if no further steps needed before refund/stock
+                # total_refund_amount will be calculated and updated
+            )
+
+            # 2. Validate and Prepare ReturnItem data and Stock updates
+            return_items_to_create = []
+            stock_updates = {} # {product_pk: quantity_to_add_back}
+            calculated_refund_total = Decimal('0.00')
+
+            # Fetch original order items efficiently
+            original_items = {item.pk: item for item in order.items.filter(pk__in=[d['order_item_pk'] for d in items_to_return_data])}
+
+            for item_data in items_to_return_data:
+                order_item_pk = item_data['order_item_pk']
+                return_qty = item_data['return_qty']
+
+                original_item = original_items.get(order_item_pk)
+
+                # Validate: Item exists and belongs to the order (covered by fetch) and quantity
+                if not original_item:
+                    raise ValueError(f"Invalid Order Item ID {order_item_pk} submitted.")
+                if return_qty > original_item.quantity: # Maybe check against available_to_return later
+                    raise ValueError(f"Cannot return {return_qty} of {original_item.product_name}. Only {original_item.quantity} were ordered.") # Improve msg later
+
+                # Prepare ReturnItem instance data
+                return_items_to_create.append(
+                    ReturnItem(
+                        order_return=order_return,
+                        order_item=original_item,
+                        quantity_returned=return_qty
+                    )
+                )
+
+                # Calculate refund amount for this item (based on original price)
+                item_refund = original_item.price * return_qty
+                calculated_refund_total += item_refund
+
+                # Prepare stock update (add back to stock)
+                if original_item.product_id: # Check if product still exists
+                    stock_updates[original_item.product_id] = stock_updates.get(original_item.product_id, 0) + return_qty
+
+            # 3. Bulk Create ReturnItems
+            ReturnItem.objects.bulk_create(return_items_to_create)
+
+            # 4. Bulk Update Stock
+            for prod_pk, qty_to_add in stock_updates.items():
+                Product.objects.filter(pk=prod_pk).update(stock_quantity=F('stock_quantity') + qty_to_add)
+
+            # 5. Update OrderReturn total refund amount
+            order_return.total_refund_amount = calculated_refund_total
+            order_return.processed_by = request.user # Mark who processed it
+            # Decide final status - e.g., if refund happens separately, keep 'Processing'
+            # If refund assumed here, set to 'Completed'
+            # Let's assume 'Processing' implies stock returned, 'Completed' implies refund issued.
+            order_return.status = OrderReturn.RETURN_STATUS_PROCESSING
+            order_return.save(update_fields=['total_refund_amount', 'processed_by', 'status'])
+
+
+            # 6. Update original Order's refunded amount
+            order.refunded_amount = (order.refunded_amount or Decimal('0.00')) + calculated_refund_total
+            # Update Payment Status based on NEW net paid vs total
+            net_paid = (order.amount_paid or Decimal('0.00')) - order.refunded_amount
+            if net_paid >= order.total_amount - Decimal('0.01'): # Check if still paid in full after refund (with tolerance)
+                 # Decide if status should remain Paid or change based on refunds. Let's keep it Paid if originally Paid.
+                 # Or maybe introduce 'Partially Refunded'? For now, let's just update refunded_amount.
+                 # If original was Partial, it might become Pending or stay Partial.
+                 if order.payment_status == Order.PAYMENT_STATUS_PAID:
+                      order.payment_status = Order.PAYMENT_STATUS_PAID # Or a new status?
+                 elif net_paid > Decimal('0.00'):
+                      order.payment_status = Order.PAYMENT_STATUS_PARTIAL
+                 else:
+                       order.payment_status = Order.PAYMENT_STATUS_PENDING # Or even a Refunded status?
+
+            order.save(update_fields=['refunded_amount', 'payment_status'])
+
+
+        # --- End Transaction ---
+        messages.success(request, f"Return processed successfully for Order {str(order.pk)[:8]}. Stock updated. Refund amount: ₹{calculated_refund_total:.2f}")
+        # Redirect to the Order Return detail page (needs to be created) or back to Order Detail
+        # return redirect('orders:order_return_detail', pk=order_return.pk)
+        return redirect('orders:order_detail', pk=order.pk) # Redirect back to order detail for now
+
+    except (ValueError, Product.DoesNotExist, OrderItem.DoesNotExist) as e:
+         messages.error(request, f"Error processing return: {e}")
+         # Redirect back to initiate page on validation error
+         return redirect('orders:order_return_initiate', pk=order.pk)
+    except Exception as e:
+         messages.error(request, f"An unexpected error occurred: {e}")
+         print(f"Unexpected error processing return for order {pk}: {e}") # Log error
+         # Redirect back to order detail on unexpected error
+         return redirect('orders:order_detail', pk=order.pk)
