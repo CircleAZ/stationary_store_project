@@ -1,13 +1,36 @@
 # customers/views.py
+from django import forms
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from .models import Customer
+from .models import Customer, Address
 from .forms import CustomerForm
 from django.template.loader import render_to_string # Import render_to_string
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse # Import response types
 from django.contrib.auth.decorators import login_required # Keep using login_required
+from orders.models import Order
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.forms import inlineformset_factory
+from django.db import transaction
 
-# Existing customer_list_view function...
+
+AddressFormSet = inlineformset_factory(
+    Customer,       # Parent model
+    Address,        # Inline model
+    fields=('address_line', 'landmark', 'city', 'state', 'postal_code', 'country', 'is_primary'), # Fields on Address form
+    extra=1,        # How many extra blank forms to display
+    can_delete=True, # Allow deleting existing addresses via the formset
+    widgets={       # Optional: Apply widgets/styling
+        'address_line': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'landmark': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'postal_code': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'city': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'state': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'country': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'is_primary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+    }
+)
+
+
 def customer_list_view(request):
     customers = Customer.objects.all()
     context = {
@@ -35,67 +58,76 @@ def customer_detail_view(request, pk):
     return render(request, 'customers/customer_detail.html', context)
 
 
+@login_required # Or other permission check
 def customer_add_view(request):
-    """
-    Handles displaying the form to add a new customer (GET request)
-    and processing the submitted form data (POST request).
-    """
-    form_title = "Add New Customer" # Title for the template
-
+    form_title = "Add New Customer"
     if request.method == 'POST':
-        form = CustomerForm(request.POST) # Or CustomerForm(request.POST, instance=customer) for edit
-        if form.is_valid():
-            # form.save() now correctly saves both country_code and phone_number
-            new_or_updated_customer = form.save()
-            messages.success(...)
-            return redirect(...) # Redirect works as before
+        form = CustomerForm(request.POST)
+        # Instantiate formset with POST data, prefix is important if multiple formsets on page
+        address_formset = AddressFormSet(request.POST, prefix='addresses')
+
+        if form.is_valid() and address_formset.is_valid():
+            try:
+                with transaction.atomic(): # Use transaction for multi-model save
+                    new_customer = form.save() # Save Customer first to get PK
+                    # Link address formset to the newly created customer instance
+                    address_formset.instance = new_customer
+                    address_formset.save() # Save related Address objects
+                    messages.success(request, f"Customer '{new_customer.full_name}' added successfully!")
+                    return redirect('customers:customer_detail', pk=new_customer.pk)
+            except Exception as e: # Catch potential errors during save
+                 messages.error(request, f"Error saving customer: {e}")
+                 # Fall through to render form with errors
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-         form = CustomerForm() # Or CustomerForm(instance=customer) for edit
-    
-    # Prepare the context data for the template
-    context = {
-        'form': form,          # The form instance (blank or with errors)
-        'form_title': form_title, # The title for the page/card
-    }
-    # Render the form template (we'll reuse this for editing later)
-    return render(request, 'customers/customer_form.html', context)
+        form = CustomerForm()
+        # Instantiate blank formset for GET request
+        address_formset = AddressFormSet(prefix='addresses')
 
-def customer_edit_view(request, pk):
-    """
-    Handles displaying the form pre-filled with an existing customer's data (GET)
-    and processing the submitted form data to update that customer (POST).
-    """
-    # Get the specific customer object to edit, or return 404 if not found
-    customer = get_object_or_404(Customer, pk=pk)
-    form_title = f"Edit Customer: {customer.full_name}" # Dynamic title for the page
-
-    if request.method == 'POST':
-        # If data was submitted, bind it to the form AND the existing customer instance
-        form = CustomerForm(request.POST, instance=customer) # Pass instance=customer
-        if form.is_valid():
-            # If data is valid, save changes to the existing customer object
-            updated_customer = form.save()
-            messages.success(request, f"Customer '{updated_customer.full_name}' updated successfully!")
-            # Redirect back to the customer's detail page
-            return redirect('customers:customer_detail', pk=updated_customer.pk)
-        else:
-            # If form is invalid, display errors
-            messages.error(request, "Please correct the errors below.")
-            # Fall through to render the form again (with errors)
-    else:
-        # If it's a GET request, create form instance pre-populated with the customer's data
-        form = CustomerForm(instance=customer) # Pass instance=customer to pre-fill
-
-    # Prepare context for the template (reusing customer_form.html)
     context = {
         'form': form,
+        'address_formset': address_formset, # <-- Pass formset to context
         'form_title': form_title,
-        'customer': customer, # Pass the customer object itself for the template's conditional logic
     }
-    # Render the *same* template used for adding
-    return render(request, 'customers/customer_form.html', context)
+    return render(request, 'customers/customer_form.html', context) # Use same template
+
+
+@login_required # Or other permission check
+def customer_edit_view(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    form_title = f"Edit Customer: {customer.full_name}"
+
+    if request.method == 'POST':
+        form = CustomerForm(request.POST, instance=customer)
+        # Instantiate formset with POST data AND existing customer instance
+        address_formset = AddressFormSet(request.POST, instance=customer, prefix='addresses')
+
+        if form.is_valid() and address_formset.is_valid():
+            try:
+                with transaction.atomic():
+                    updated_customer = form.save()
+                    # address_formset already linked to instance
+                    address_formset.save() # Save changes to addresses (adds/updates/deletes)
+                    messages.success(request, f"Customer '{updated_customer.full_name}' updated successfully!")
+                    return redirect('customers:customer_detail', pk=updated_customer.pk)
+            except Exception as e:
+                 messages.error(request, f"Error saving customer: {e}")
+                 # Fall through to render form with errors
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = CustomerForm(instance=customer)
+        # Instantiate formset pre-filled with existing addresses for this customer
+        address_formset = AddressFormSet(instance=customer, prefix='addresses')
+
+    context = {
+        'form': form,
+        'address_formset': address_formset, # <-- Pass formset to context
+        'form_title': form_title,
+        'customer': customer,
+    }
+    return render(request, 'customers/customer_form.html', context) # Use same template
 
 def customer_delete_view(request, pk):
     """
@@ -165,4 +197,36 @@ def customer_add_modal_api(request):
         # Method not allowed
         return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
     
-    
+def customer_detail_view(request, pk): # Assuming no @login_required needed for public view? Add if needed.
+    """
+    Fetches a single customer by pk and their associated orders,
+    displays details using the customer_detail.html template.
+    """
+    customer = get_object_or_404(Customer, pk=pk)
+
+    # --- Fetch related orders ---
+    # Use the related_name 'orders' from the ForeignKey in the Order model
+    # Order them by newest first
+    customer_orders = customer.orders.all().order_by('-created_at') # Use .all() here
+    # You could add select_related for order fields if needed:
+    # customer_orders = customer.orders.select_related('payment_method').all().order_by('-created_at')
+
+    # --- Pagination for Orders (Optional but good if many orders) ---
+    paginator = Paginator(customer_orders, 10) # Show 10 orders per page
+    page_number = request.GET.get('page') # Check for 'page' GET parameter
+    try:
+        orders_page = paginator.page(page_number)
+    except PageNotAnInteger:
+        orders_page = paginator.page(1)
+    except EmptyPage:
+        orders_page = paginator.page(paginator.num_pages)
+    # --- End Pagination ---
+
+
+    context = {
+        'customer': customer,
+        'orders_page': orders_page, # Pass the paginated orders object
+        # 'customer_orders': customer_orders, # Pass this instead if not paginating
+        'page_title': f"Customer: {customer.full_name}"
+    }
+    return render(request, 'customers/customer_detail.html', context)

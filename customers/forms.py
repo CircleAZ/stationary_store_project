@@ -2,7 +2,7 @@
 
 import re
 from django import forms
-from .models import Customer # Import the Customer model
+from .models import Customer, CustomerGroup # Import the Customer model
 
 class CustomerForm(forms.ModelForm):
     """
@@ -42,27 +42,28 @@ class CustomerForm(forms.ModelForm):
     )
     # --- END MODIFY Phone Number Field ---
 
+    groups = forms.ModelMultipleChoiceField(
+        queryset=CustomerGroup.objects.all(), # Query all available groups
+        widget=forms.CheckboxSelectMultiple, # Use checkboxes
+        required=False # Matches model's blank=True
+    )
+
     class Meta:
-        model = Customer # Link this form to the Customer model
-        # Specify the fields from the model to include in the form
+        model = Customer
         fields = [
             'first_name',
             'middle_name',
             'last_name',
-            'country_code',
-            'phone_number',
-            'email',
             'school_grade',
-            'address',
-            'address_hint',
-            'postal_code',
-            'notes',
-            # created_at and updated_at are handled automatically by Django
+            # 'address',
+            # 'address_hint',
+            # 'postal_code',
+            # 'country_code', 'phone_number', 'email', 'groups', 'notes' are handled above
         ]
-        # Optional: Customize labels shown next to fields
-        labels = {
+        labels = { # Only need labels for fields *in* the Meta.fields list if customizing
             'school_grade': 'Class',
-            'address_hint': 'Address Hint (Landmark, etc.)',
+            # 'address_hint': 'Address Hint (Landmark, etc.)',
+            # 'groups': 'Assign to Groups', # Label defined on explicit field now
         }
      # --- ADJUST Phone Validation Method (if desired) ---
     def clean_phone_number(self):

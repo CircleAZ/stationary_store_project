@@ -22,8 +22,9 @@
             <th scope="col">Name</th>
             <th scope="col">Email</th>
             <th scope="col">Phone</th>
-            <th scope="col">Address</th>
-            <th scope="col">Class/Grade</th>
+            <th scope="col">Primary Address</th>
+            <th scope="col">Class</th>
+            <th scope="col">Groups</th>
             <th scope="col">Actions</th> {# Column for Edit/View Details buttons #}
           </tr>
         </thead>
@@ -36,9 +37,20 @@
                 {# --- UPDATE PHONE DISPLAY --- #}
                 <td>{{ customer.full_phone_number|default:"-" }}</td> {# Use the property #}
                 {# --- END UPDATE --- #}
-                <td>{{ customer.address|default:"-" }}</td>
+                <td>
+                  {% with primary_addr=customer.primary_address %}
+                     {{ primary_addr|default:"-" }} {# Display string representation or '-' #}
+                  {% endwith %}
+              </td>
                 <td>{{ customer.school_grade|default:"-" }}</td>
                 <td>{# Action buttons #}</td>
+                <td>
+                  {% for group in customer.groups.all %}
+                     <span class="badge bg-secondary me-1">{{ group.name }}</span>
+                  {% empty %}
+                     <span class="text-muted small">-</span>
+                  {% endfor %}
+              </td>
                 <td>
                     <a href="{% url 'customers:customer_detail' pk=customer.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
                     {# --- UPDATE THIS EDIT LINK --- #}

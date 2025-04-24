@@ -1,57 +1,119 @@
 {# customers/templates/customers/customer_form.html #}
-
 {% extends "base.html" %}
+{% load auth_extras %} {# Keep if needed #}
 
 {% block title %}{{ form_title }}{% endblock %}
 
 {% block content %}
   <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-md-9"> {# Wider column maybe #}
       <h1 class="mb-4">{{ form_title }}</h1>
-      <div class="card shadow-sm"> {# Added shadow #}
-        <div class="card-body">
-          {# Use POST method; novalidate disables browser validation, letting Django handle it #}
-          <form method="post" novalidate>
-            {% csrf_token %}
+      <form method="post" novalidate> {# No enctype needed unless customer form has files #}
+        {% csrf_token %}
 
-            {# --- Keep Explicit Render for Phone Group --- #}
-            <label class="form-label">Phone Number</label>
-            <div class="input-group mb-3">
-                <span class="input-group-text">Code</span>
-                {{ form.country_code }} {# Render country_code (now a model field handled by form) #}
-                {{ form.phone_number }} {# Render phone_number (local part) #}
-            </div>
-            {# Display errors #}
-            {% for error in form.country_code.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-            {% for error in form.phone_number.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-            {# --- End Explicit Render ---#}
+        <div class="card shadow-sm mb-4">
+          <div class="card-header">Customer Details</div>
+          <div class="card-body">
+              {# --- Render Main Customer Form Fields --- #}
+               {# Explicit Phone Group #}
+                <label class="form-label">Phone Number</label>
+                <div class="input-group mb-3">... {{ form.country_code }} {{ form.phone_number }} ...</div>
+                {# Phone Errors #}
+                {% for error in form.country_code.errors %}<div ...></div>{% endfor %}
+                {% for error in form.phone_number.errors %}<div ...></div>{% endfor %}
 
-
-            {# --- Render Remaining Fields (Loop unchanged) --- #}
-            {% for field in form %}
-              {# Exclude fields we rendered manually #}
-              {% if field.name != 'country_code' and field.name != 'phone_number' %}
-                <div class="mb-3">
-                  {{ field.label_tag }}
-                  {{ field }}
-                  {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
-                  {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                </div>
-              {% endif %}
-            {% endfor %}
-            {# --- End Manual Loop --- #}
-
-            <div class="mt-4">
-              {# Button text changes if editing later #}
-              <button type="submit" class="btn btn-success">
-                  {% if customer %}Update Customer{% else %}Save New Customer{% endif %} {# Placeholder 'customer' check for edit reuse #}
-              </button>
-              {# Cancel goes back to list if adding, detail if editing (placeholder check) #}
-              <a href="{% if customer %}{% url 'customers:customer_detail' pk=customer.pk %}{% else %}{% url 'customers:customer_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
-            </div>
-          </form>
+                {# Loop for OTHER fields defined on the form object #}
+                {% for field in form %}
+                  {% if field.name != 'country_code' and field.name != 'phone_number' %}
+                    <div class="mb-3">
+                       {{ field.label_tag }}
+                       {% if field.name == 'groups' %} <div class="border p-2 rounded" ...>{{ field }}</div>
+                       {% elif field.name == 'notes' %} {{ field }}
+                       {% else %} {{ field }}
+                       {% endif %}
+                       {# Help Text & Errors #}
+                       {% if field.help_text %}<small ...>{{ field.help_text }}</small>{% endif %}
+                       {% for error in field.errors %}<div ...>{{ error }}</div>{% endfor %}
+                    </div>
+                  {% endif %}
+                {% endfor %}
+                {# --- End Main Customer Form Fields --- #}
+          </div>
         </div>
-      </div>
+
+
+        {# --- Render Address Inline Formset --- #}
+        <div class="card shadow-sm">
+            <div class="card-header">Addresses</div>
+            <div class="card-body">
+                {{ address_formset.management_form }} {# Required hidden fields for formset #}
+                {% if address_formset.non_form_errors %}
+                    <div class="alert alert-danger">{{ address_formset.non_form_errors }}</div>
+                {% endif %}
+
+                {% for address_form in address_formset %}
+                    <div class="address-form mb-3 p-3 border rounded"> {# Wrap each address form #}
+                         {{ address_form.id }} {# Hidden field for existing address PK #}
+                        <div class="row g-3">
+                            <div class="col-12">
+                                 {{ address_form.address_line.label_tag }}
+                                 {{ address_form.address_line }}
+                                 {% for error in address_form.address_line.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                             <div class="col-md-6">
+                                 {{ address_form.landmark.label_tag }}
+                                 {{ address_form.landmark }}
+                                 {% for error in address_form.landmark.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                 {{ address_form.postal_code.label_tag }}
+                                 {{ address_form.postal_code }}
+                                  {% for error in address_form.postal_code.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                             <div class="col-md-6">
+                                 {{ address_form.city.label_tag }}
+                                 {{ address_form.city }}
+                                  {% for error in address_form.city.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                 {{ address_form.state.label_tag }}
+                                 {{ address_form.state }}
+                                 {% for error in address_form.state.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                             <div class="col-md-6">
+                                 {{ address_form.country.label_tag }}
+                                 {{ address_form.country }}
+                                 {% for error in address_form.country.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                            <div class="col-md-6 d-flex align-items-center">
+                                <div class="form-check pt-3">
+                                    {{ address_form.is_primary }}
+                                    {{ address_form.is_primary.label_tag }}
+                                    {% for error in address_form.is_primary.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                                </div>
+                                 {# Display Delete checkbox if formset allows deletion and it's an existing address #}
+                                 {% if address_formset.can_delete and address_form.instance.pk %}
+                                    <div class="form-check ms-auto pt-3">
+                                        {{ address_form.DELETE }}
+                                        {{ address_form.DELETE.label_tag }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>{# End row #}
+                     </div>{# End address-form wrapper #}
+                {% endfor %}
+            </div>
+        </div>
+        {# --- End Address Inline Formset --- #}
+
+
+        {# --- Submit Buttons --- #}
+        <div class="mt-4">
+          <button type="submit" class="btn btn-success"> ... Save/Update Customer ... </button>
+          <a href="..." class="btn btn-secondary">Cancel</a>
+        </div>
+        {# --- End Buttons --- #}
+      </form>
     </div>
   </div>
 {% endblock %}
