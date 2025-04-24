@@ -17,7 +17,7 @@
               {# --- Render Main Customer Form Fields --- #}
                {# Explicit Phone Group #}
                 <label class="form-label">Phone Number</label>
-                <div class="input-group mb-3">... {{ form.country_code }} {{ form.phone_number }} ...</div>
+                <div class="input-group mb-3">{{ form.country_code }} {{ form.phone_number }}</div>
                 {# Phone Errors #}
                 {% for error in form.country_code.errors %}<div ...></div>{% endfor %}
                 {% for error in form.phone_number.errors %}<div ...></div>{% endfor %}
@@ -109,8 +109,8 @@
 
         {# --- Submit Buttons --- #}
         <div class="mt-4">
-          <button type="submit" class="btn btn-success"> ... Save/Update Customer ... </button>
-          <a href="..." class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-success">Save/Update Customer</button>
+          <a href="/customers/" class="btn btn-secondary">Cancel</a>
         </div>
         {# --- End Buttons --- #}
       </form>

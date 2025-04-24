@@ -1,98 +1,134 @@
 {# customers/templates/customers/customer_detail.html #}
 
-{% extends "base.html" %} {# Use the base template #}
+{% extends "base.html" %}
+{% load auth_extras %} {# Load if needed for other parts, e.g., conditional Edit/Delete #}
 
-{% block title %}{{ customer.full_name }} - Details{% endblock %} {# Dynamic page title #}
+{% block title %}{{ customer.full_name }} - Details{% endblock %}
 
 {% block content %}
-  <div class="card shadow-sm mb-4"> {# Add a subtle shadow and margin #}
-    <div class="card-header bg-light"> {# Light background for header #}
+  {# Main Customer Card #}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header bg-light">
         <div class="d-flex justify-content-between align-items-center">
             <h2 class="mb-0">{{ customer.full_name }}</h2>
-             {# Action buttons for Edit/Delete (Delete link placeholder for now) #}
+            {# Action buttons for Edit/Delete #}
             <div>
-                <a href="{% url 'customers:customer_edit' pk=customer.pk %}" class="btn btn-primary btn-sm me-2">
-                    <i class="fas fa-edit"></i> Edit
-                </a>
-                <a href="{% url 'customers:customer_delete' pk=customer.pk %}" class="btn btn-danger btn-sm">
-                    <i class="fas fa-trash-alt"></i> Delete
-                </a>
+                {# Conditionally show Edit/Delete based on permissions #}
+                {% if user.is_superuser or user|has_group:"Manager" %}
+                    <a href="{% url 'customers:customer_edit' pk=customer.pk %}" class="btn btn-primary btn-sm me-2">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <a href="{% url 'customers:customer_delete' pk=customer.pk %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </a>
+                 {% endif %}
             </div>
         </div>
     </div>
     <div class="card-body">
         <div class="row">
+            {# --- Left Column: Contact & Address --- #}
             <div class="col-md-6">
                 <h5>Contact Information</h5>
-                <ul class="list-unstyled mb-4">
+                <dl class="row mb-4"> {# Use DL for Contact Info #}
                     {% if customer.full_phone_number %}
-                        <li><strong>Phone:</strong> {{ customer.full_phone_number }}</li> {# Use the property #}
+                        <dt class="col-sm-3">Phone:</dt>
+                        <dd class="col-sm-9">{{ customer.full_phone_number }}</dd>
                     {% endif %}
                     {% if customer.email %}
-                        <li><strong>Email:</strong> {{ customer.email }}</li>
+                         <dt class="col-sm-3">Email:</dt>
+                         <dd class="col-sm-9">{{ customer.email }}</dd>
                     {% endif %}
-                     {# Show placeholder if no contact info #}
-                    {% if not customer.phone_number and not customer.email %}
-                        <li><em class="text-muted">No contact information provided.</em></li>
+                    {% if not customer.full_phone_number and not customer.email %}
+                        <dd class="col-sm-12"><em class="text-muted">No contact information provided.</em></dd>
                     {% endif %}
-                </ul>
+                </dl>
 
-                {% with primary_addr=customer.primary_address %} {# Use the property #}
-      {% if primary_addr %}
-        <dt class="col-sm-4">Primary Address:</dt>
-        <dd class="col-sm-8">
-            {{ primary_addr.address_line }}<br>
-            {% if primary_addr.landmark %}{{ primary_addr.landmark }}<br>{% endif %}
-            {% if primary_addr.city %}{{ primary_addr.city }}{% endif %}{% if primary_addr.state %}, {{ primary_addr.state }}{% endif %}{% if primary_addr.postal_code %} {{ primary_addr.postal_code }}{% endif %}<br>
-            {{ primary_addr.country }}
-        </dd>
-      {% else %}
-         <dt class="col-sm-4">Address:</dt>
-         <dd class="col-sm-8"><em class="text-muted">No primary address set.</em></dd>
-      {% endif %}
-    {% endwith %}
-            </div>
+                {# --- Address Information (using DL) --- #}
+                <h5>Address</h5>
+                <dl class="row mb-4">
+                    {% with primary_addr=customer.primary_address %}
+                       {% if primary_addr %}
+                         {# Removed explicit <dt> Primary Address </dt> to avoid repetition #}
+                         <dt class="col-sm-3">Address:</dt>
+                         <dd class="col-sm-9">{{ primary_addr.address_line }}</dd>
+
+                         {% if primary_addr.landmark %}
+                             <dt class="col-sm-3">Landmark:</dt>
+                             <dd class="col-sm-9">{{ primary_addr.landmark }}</dd>
+                         {% endif %}
+                          {% if primary_addr.city or primary_addr.state %}
+                             <dt class="col-sm-3">Location:</dt> {# Combined City/State #}
+                             <dd class="col-sm-9">{% if primary_addr.city %}{{ primary_addr.city }}{% endif %}{% if primary_addr.city and primary_addr.state %}, {% endif %}{% if primary_addr.state %}{{ primary_addr.state }}{% endif %}</dd>
+                         {% endif %}
+                         {% if primary_addr.postal_code %}
+                             <dt class="col-sm-3">Postal Code:</dt>
+                             <dd class="col-sm-9">{{ primary_addr.postal_code }}</dd>
+                         {% endif %}
+                         {% if primary_addr.country %}
+                            <dt class="col-sm-3">Country:</dt>
+                            <dd class="col-sm-9">{{ primary_addr.country }}</dd>
+                         {% endif %}
+                       {% else %}
+                          <dd class="col-sm-12"><em class="text-muted">No primary address set.</em></dd>
+                       {% endif %}
+                     {% endwith %}
+                     {# Optional: Add loop here to display other non-primary addresses if needed #}
+                     {# {% for addr in customer.addresses.all %}{% if not addr.is_primary %} ... {% endif %}{% endfor %} #}
+                </dl>
+                 {# --- End Address Information --- #}
+
+            </div> {# End Left Column #}
+
+            {# --- Right Column: Other Details & Notes --- #}
             <div class="col-md-6">
                 <h5>Other Details</h5>
-                <ul class="list-unstyled mb-4">
+                <dl class="row mb-4"> {# Use DL here too #}
                     {% if customer.school_grade %}
-                        <li><strong>Class/Grade:</strong> {{ customer.school_grade }}</li>
+                        <dt class="col-sm-4">Class:</dt> {# Simplified Label #}
+                        <dd class="col-sm-8">{{ customer.school_grade }}</dd>
                     {% endif %}
-                    <li><strong>Customer Since:</strong> {{ customer.created_at|date:"d M Y" }}</li>
-                    <li><strong>Last Updated:</strong> {{ customer.updated_at|date:"d M Y, P" }}</li>
-                    {% if customer.groups.all %}
-                    <li><strong>Groups:</strong>
-                        {% for group in customer.groups.all %}
-                          <span class="badge bg-secondary">{{ group.name }}</span>
-                        {% endfor %}
-                    </li>
-         {% endif %}
-                
-                </ul>
 
-                 {% if customer.notes %}
+                    {% if customer.groups.all %}
+                         <dt class="col-sm-4">Groups:</dt>
+                         <dd class="col-sm-8">
+                             {% for group in customer.groups.all %}
+                               <span class="badge bg-secondary me-1">{{ group.name }}</span>
+                             {% endfor %}
+                         </dd>
+                     {% endif %}
+
+                    <dt class="col-sm-4">Customer Since:</dt>
+                    <dd class="col-sm-8">{{ customer.created_at|date:"d M Y" }}</dd>
+
+                    <dt class="col-sm-4">Last Updated:</dt>
+                    <dd class="col-sm-8">{{ customer.updated_at|date:"d M Y, P" }}</dd>
+                </dl>
+
+                {% if customer.notes %}
                     <h5>Notes</h5>
-                    <p style="white-space: pre-wrap;">{{ customer.notes }}</p> {# pre-wrap preserves whitespace/line breaks #}
+                    <div class="border rounded p-2 bg-light" style="white-space: pre-wrap;">{{ customer.notes }}</div> {# Added styling #}
                 {% endif %}
-            </div>
-        </div>
-    </div>
-    <div class="card-footer text-center"> {# Centered footer link #}
+            </div> {# End Right Column #}
+        </div> {# End Row #}
+    </div> {# End Card Body #}
+    <div class="card-footer text-center">
        <a href="{% url 'customers:customer_list' %}" class="btn btn-secondary btn-sm">
           « Back to Customer List
        </a>
     </div>
-  </div>
+  </div> {# End Main Customer Card #}
 
-  {# Placeholder for Purchase History - We will add this when Order Management exists #}
-  <div class="card shadow-sm mt-4"> {# Added margin-top #}
+
+  {# --- Purchase History Section --- #}
+  <div class="card shadow-sm mt-4">
     <div class="card-header bg-light">
         <h4 class="mb-0">Purchase History</h4>
     </div>
-    <div class="card-body p-0"> {# Remove padding for table flushness #}
-        {% if orders_page %} {# Check if the orders object exists #}
+    <div class="card-body p-0">
+        {% if orders_page %}
           <div class="table-responsive">
-            <table class="table table-striped table-hover table-sm mb-0"> {# table-sm, mb-0 #}
+            <table class="table table-striped table-hover table-sm mb-0">
                 <thead>
                     <tr>
                         <th>Order ID</th>
@@ -104,7 +140,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for order in orders_page %} {# Loop through paginated orders #}
+                    {% for order in orders_page %}
                      <tr>
                         <td>
                            <a href="{% url 'orders:order_detail' pk=order.pk %}">{{ order.order_id|stringformat:".8s" }}</a>
@@ -112,12 +148,21 @@
                         <td>{{ order.created_at|date:"d M Y" }}</td>
                         <td class="text-end">₹{{ order.total_amount|floatformat:2 }}</td>
                         <td>
-                           <span class="badge rounded-pill {% if order.payment_status == order.PAYMENT_STATUS_PAID %} bg-success ... {% else %} bg-danger {% endif %}">
+                           {# Added full status checks for badges #}
+                           <span class="badge rounded-pill
+                              {% if order.payment_status == order.PAYMENT_STATUS_PAID %} bg-success
+                              {% elif order.payment_status == order.PAYMENT_STATUS_PARTIAL %} bg-warning text-dark
+                              {% elif order.payment_status == order.PAYMENT_STATUS_REFUNDED %} bg-secondary
+                              {% else %} bg-danger {% endif %}"> {# Default to danger for Pending #}
                              {{ order.get_payment_status_display }}
                            </span>
                         </td>
                         <td>
-                           <span class="badge rounded-pill {% if order.status == order.ORDER_STATUS_COMPLETED %} bg-success ... {% else %} bg-primary {% endif %}">
+                           <span class="badge rounded-pill
+                              {% if order.status == order.ORDER_STATUS_COMPLETED %} bg-success
+                              {% elif order.status == order.ORDER_STATUS_PROCESSING %} bg-info text-dark
+                              {% elif order.status == order.ORDER_STATUS_CANCELLED %} bg-secondary
+                              {% else %} bg-primary {% endif %}"> {# Default to primary for Pending #}
                              {{ order.get_status_display }}
                            </span>
                         </td>
@@ -130,28 +175,23 @@
                     {% endfor %}
                 </tbody>
             </table>
-          </div> {# End table-responsive #}
+          </div>
         {% else %}
              <p class="text-muted p-3">This customer has no order history.</p>
         {% endif %}
     </div>{# End card-body #}
 
-    {# --- Pagination Controls for Orders --- #}
+    {# Pagination Controls #}
     {% if orders_page.has_other_pages %}
     <div class="card-footer">
       <nav aria-label="Customer Order pagination">
-        <ul class="pagination justify-content-center mb-0"> {# mb-0 to remove bottom margin #}
-          {# Previous Page Link #}
+        <ul class="pagination justify-content-center mb-0">
           {% if orders_page.has_previous %}
-            <li class="page-item"><a class="page-link page-link-sm" href="?page={{ orders_page.previous_page_number }}">«</a></li> {# Smaller links #}
+            <li class="page-item"><a class="page-link page-link-sm" href="?page={{ orders_page.previous_page_number }}">«</a></li>
           {% else %}
             <li class="page-item disabled"><span class="page-link page-link-sm">«</span></li>
           {% endif %}
-
-          {# Page Numbers (Simplified for brevity if needed) #}
           <li class="page-item disabled"><span class="page-link page-link-sm">Page {{ orders_page.number }} of {{ orders_page.paginator.num_pages }}</span></li>
-
-          {# Next Page Link #}
           {% if orders_page.has_next %}
             <li class="page-item"><a class="page-link page-link-sm" href="?page={{ orders_page.next_page_number }}">»</a></li>
           {% else %}
@@ -161,8 +201,7 @@
       </nav>
     </div>
     {% endif %}
-    {# --- End Pagination Controls --- #}
 
-  </div> {# End Card #}
+  </div> {# End Purchase History Card #}
 
 {% endblock %}

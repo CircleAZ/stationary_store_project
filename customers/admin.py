@@ -17,7 +17,7 @@ class CustomerAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'email', 'full_phone_number', 'school_grade', 'display_groups', 'updated_at') # REMOVED address/city
     list_filter = ('groups', 'school_grade', 'created_at') # REMOVED city/state
     search_fields = ('first_name', 'last_name', 'email', 'phone_number', 'groups__name',
-                 'addresses__address_line', 'addresses__city', 'addresses__postal_code') # UPDATED to search related address fields
+                 'addresses__address_line', 'addresses__city', 'addresses__postal_code') 
     ordering = ('first_name', 'last_name')
     # --- Add 'groups' to filter_horizontal for better selection ---
     filter_horizontal = ('groups',) # Makes ManyToMany selection nicer
