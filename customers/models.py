@@ -76,11 +76,6 @@ class Customer(models.Model):
 
     # Stationery Store Specific
     school_grade = models.CharField(max_length=50, blank=True, null=True, verbose_name="Class") # Label changed earlier
-   # --- Address Fields ---
-    # address = models.CharField(max_length=255, blank=True, null=True, verbose_name="Address")
-    # address_hint = models.CharField(max_length=255, blank=True, null=True, verbose_name="Address Hint", help_text="E.g., Landmark, Floor, Apartment number")
-    # postal_code = models.CharField(max_length=20, blank=True, null=True) # Kept postal code
-    # --- END Address Fields ---
 
     groups = models.ManyToManyField(
         CustomerGroup,

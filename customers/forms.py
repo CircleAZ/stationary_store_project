@@ -55,14 +55,9 @@ class CustomerForm(forms.ModelForm):
             'middle_name',
             'last_name',
             'school_grade',
-            # 'address',
-            # 'address_hint',
-            # 'postal_code',
-            # 'country_code', 'phone_number', 'email', 'groups', 'notes' are handled above
         ]
         labels = { # Only need labels for fields *in* the Meta.fields list if customizing
             'school_grade': 'Class',
-            # 'address_hint': 'Address Hint (Landmark, etc.)',
             # 'groups': 'Assign to Groups', # Label defined on explicit field now
         }
      # --- ADJUST Phone Validation Method (if desired) ---

@@ -37,24 +37,20 @@
                     {% endif %}
                 </ul>
 
-                <h5>Address</h5>
-                <ul class="list-unstyled mb-4">
-                    {# --- DISPLAY PRIMARY ADDRESS --- #}
-                 {% with primary_addr=customer.primary_address %} {# Use the property #}
-                 {% if primary_addr %}
-                   <dt class="col-sm-4">Primary Address:</dt>
-                   <dd class="col-sm-8">
-                       {{ primary_addr.address_line }}<br>
-                       {% if primary_addr.landmark %}{{ primary_addr.landmark }}<br>{% endif %}
-                       {% if primary_addr.city %}{{ primary_addr.city }}{% endif %}{% if primary_addr.state %}, {{ primary_addr.state }}{% endif %}{% if primary_addr.postal_code %} {{ primary_addr.postal_code }}{% endif %}<br>
-                       {{ primary_addr.country }}
-                   </dd>
-                 {% else %}
-                    <dt class="col-sm-4">Address:</dt>
-                    <dd class="col-sm-8"><em class="text-muted">No primary address set.</em></dd>
-                 {% endif %}
-               {% endwith %}
-                </ul>
+                {% with primary_addr=customer.primary_address %} {# Use the property #}
+      {% if primary_addr %}
+        <dt class="col-sm-4">Primary Address:</dt>
+        <dd class="col-sm-8">
+            {{ primary_addr.address_line }}<br>
+            {% if primary_addr.landmark %}{{ primary_addr.landmark }}<br>{% endif %}
+            {% if primary_addr.city %}{{ primary_addr.city }}{% endif %}{% if primary_addr.state %}, {{ primary_addr.state }}{% endif %}{% if primary_addr.postal_code %} {{ primary_addr.postal_code }}{% endif %}<br>
+            {{ primary_addr.country }}
+        </dd>
+      {% else %}
+         <dt class="col-sm-4">Address:</dt>
+         <dd class="col-sm-8"><em class="text-muted">No primary address set.</em></dd>
+      {% endif %}
+    {% endwith %}
             </div>
             <div class="col-md-6">
                 <h5>Other Details</h5>
