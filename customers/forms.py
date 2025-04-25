@@ -2,7 +2,7 @@
 
 import re
 from django import forms
-from .models import Customer, CustomerGroup, LocationTag # Import the Customer model
+from .models import Customer, CustomerGroup
 
 class CustomerForm(forms.ModelForm):
     """
@@ -46,14 +46,7 @@ class CustomerForm(forms.ModelForm):
         queryset=CustomerGroup.objects.all(), # Query all available groups
         widget=forms.CheckboxSelectMultiple, # Use checkboxes
         required=False # Matches model's blank=True
-    )
-
-    location_tags = forms.ModelMultipleChoiceField(
-        queryset=LocationTag.objects.all(),
-        widget=forms.CheckboxSelectMultiple,
-        required=False,
-        label="Location Tags" # Add label
-    )    
+    )   
 
     class Meta:
         model = Customer
@@ -62,11 +55,9 @@ class CustomerForm(forms.ModelForm):
             'middle_name',
             'last_name',
             'school_grade',
-            'location_tags',
         ]
         labels = { # Only need labels for fields *in* the Meta.fields list if customizing
             'school_grade': 'Class',
-            'location_tags': 'Assign Location Tags',
             # 'groups': 'Assign to Groups', # Label defined on explicit field now
         }
      # --- ADJUST Phone Validation Method (if desired) ---

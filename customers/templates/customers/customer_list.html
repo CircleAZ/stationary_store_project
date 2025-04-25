@@ -39,11 +39,11 @@
                 {# --- UPDATE PHONE DISPLAY --- #}
                 <td>{{ customer.full_phone_number|default:"-" }}</td> {# Use the property #}
                 {# --- END UPDATE --- #}
-                <td>
+                <td> {# Primary Address Column #}
                   {% with primary_addr=customer.primary_address %}
-                     {{ primary_addr|default:"-" }} {# Display string representation or '-' #}
+                     {{ primary_addr|default:"-" }} {# Uses Address.__str__ #}
                   {% endwith %}
-              </td>
+                </td>
                 <td>{{ customer.school_grade|default:"-" }}</td>
                 <td>{# Action buttons #}</td>
                 <td>
@@ -52,7 +52,7 @@
                   {% empty %}
                      <span class="text-muted small">-</span>
                   {% endfor %}
-              </td>
+                </td>
                 <td>
                     <a href="{% url 'customers:customer_detail' pk=customer.pk %}" class="btn btn-sm btn-outline-primary">Details</a>
                     {# --- UPDATE THIS EDIT LINK --- #}
@@ -65,7 +65,7 @@
                 {% empty %}
                    <span class="text-muted small">-</span>
                 {% endfor %}
-            </td>
+                </td>
               </tr>
             {% endfor %}
           </tbody>

@@ -14,6 +14,16 @@ class CustomerGroup(models.Model):
     def __str__(self):
         return self.name
     
+class LocationTag(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    # Add description or color later if needed
+
+    class Meta:
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name
+
 class Address(models.Model):
     # Link back to the Customer (One Customer -> Potentially Many Addresses, if using ForeignKey from Address)
     # OR (One Customer -> One Primary Address, if using OneToOneField from Customer)
@@ -27,12 +37,15 @@ class Address(models.Model):
     address_line = models.CharField(max_length=255, verbose_name="Address Line")
     landmark = models.CharField(max_length=255, blank=True, null=True, verbose_name="Landmark/Hint")
     postal_code = models.CharField(max_length=20, blank=True, null=True)
-    city = models.CharField(max_length=100, blank=True, null=True) # Adding City/State back here
-    state = models.CharField(max_length=100, blank=True, null=True)
-    country = models.CharField(max_length=100, default="India") # Default country
-
     is_primary = models.BooleanField(default=False, help_text="Mark as the primary address for this customer.")
     # Add coordinates later if needed: latitude = models.DecimalField(...) longitude = ...
+
+    location_tags = models.ManyToManyField(
+        LocationTag,
+        blank=True,
+        related_name="addresses", # Can keep this related_name
+        help_text="Tags describing this specific address location."
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -43,20 +56,12 @@ class Address(models.Model):
 
     def __str__(self):
         # Provide a concise string representation
-        parts = [self.address_line, self.city, self.state, self.postal_code, self.country]
-        return ", ".join(filter(None, parts)) # Join non-empty parts
+        parts = [self.address_line, self.landmark, self.postal_code]
+        return ", ".join(filter(None, parts)) or f"Address for {self.customer.full_name}"
 
     # Optional: Add validation to ensure only one primary address per customer later
 
-class LocationTag(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-    # Add description or color later if needed
 
-    class Meta:
-        ordering = ('name',)
-
-    def __str__(self):
-        return self.name
 
 class Customer(models.Model):
     # Basic Info
@@ -95,12 +100,6 @@ class Customer(models.Model):
     # Other Info
     notes = models.TextField(blank=True, null=True) # General notes/preferences
 
-    location_tags = models.ManyToManyField(
-        LocationTag,
-        blank=True,
-        related_name="customers",
-        help_text="Tags describing the customer's location (e.g., Near School Gate, Block A)"
-    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

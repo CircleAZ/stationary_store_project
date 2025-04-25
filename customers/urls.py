@@ -18,5 +18,7 @@ urlpatterns = [
     # --- NEW URLs for modal form ---
     path('add/form/', views.customer_add_form_htmx, name='customer_add_form_htmx'), # <-- Get form HTML
     path('add/modal_api/', views.customer_add_modal_api, name='customer_add_modal_api'), # <-- Post form data
+    path('api/location-tags/add/', views.location_tag_add_modal_api, name='api_location_tag_add'),
+    
 
 ]

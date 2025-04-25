@@ -16,65 +16,233 @@
           <form method="post" novalidate>
             {% csrf_token %} {# Security token required by Django #}
 
-            {# --- Explicit Render for Phone Group --- #}
-            <div class="mb-3"> {# Wrap phone group for consistent spacing #}
-                <label class="form-label d-block">Phone Number</label> {# Use d-block label #}
-                <div class="input-group"> {# Bootstrap input group #}
-                    <span class="input-group-text" style="min-width: 60px;">Code</span> {# Text label #}
-                    {{ form.country_code }} {# Render country_code dropdown #}
-                    {{ form.phone_number }} {# Render phone_number input #}
-                </div>
-                {# Display errors for phone fields below the group #}
-                {% for error in form.country_code.errors %}
-                    <div class="invalid-feedback d-block">{{ error }}</div>
-                {% endfor %}
-                 {% for error in form.phone_number.errors %}
-                    <div class="invalid-feedback d-block">{{ error }}</div>
-                {% endfor %}
-            </div>
-            {# --- End Explicit Phone Render ---#}
+           {# --- Main Customer Details Card --- #}
+        <div class="card shadow-sm mb-4">
+          <div class="card-header">Customer Details</div>
+          <div class="card-body">
+              {# Explicit Phone Group #}
+              <label class="form-label">Phone Number</label>
+              <div class="input-group mb-3"> ... {{ form.country_code }} {{ form.phone_number }} ... </div>
+              {# Phone Errors #}
+              {% for error in form.country_code.errors %}<div ...></div>{% endfor %}
+              {% for error in form.phone_number.errors %}<div ...></div>{% endfor %}
+
+              {# Loop for other main form fields #}
+              {% for field in form %}
+                {% if field.name != 'country_code' and field.name != 'phone_number' %}
+                  <div class="mb-3">
+                      {{ field.label_tag }}
+                      {% if field.name == 'groups' or field.name == 'location_tags' %}
+                          <div class="border p-2 rounded" style="max-height: 150px; overflow-y: auto;">{{ field }}</div>
+                      {% elif field.name == 'notes' %}
+                          {{ field }}
+                      {% else %}
+                          {{ field }}
+                      {% endif %}
+                      {% if field.help_text %}<small ...>{{ field.help_text }}</small>{% endif %}
+                      {% for error in field.errors %}<div ...>{{ error }}</div>{% endfor %}
+                  </div>
+                {% endif %}
+              {% endfor %}
+              {# --- End Main Customer Form Fields --- #}
+          </div> {# End Card Body #}
+        </div> {# End Card #}
+        {# --- END Main Customer Details Card --- #}
 
 
-            {# --- Render Remaining Fields via Loop --- #}
-            {% for field in form %}
-              {# Exclude fields we rendered manually above #}
-              {% if field.name != 'country_code' and field.name != 'phone_number' %}
-                <div class="mb-3">
-                  {{ field.label_tag }} {# Render label #}
+        {# --- START: Render Address Inline Formset --- #}
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">Addresses</div>
+            <div class="card-body">
+                 {{ address_formset.management_form }}
+        {% if address_formset.non_form_errors %} ... {% endif %}
 
-                  {# Conditional styling/rendering for specific field types #}
-                  {% if field.name == 'groups' or field.name == 'location_tags' %}
-                     {# Container for checkboxes #}
-                     <div class="border p-2 rounded form-control" style="max-height: 150px; overflow-y: auto; min-height: 60px;"> {# Apply form-control for similar height #}
-                         {{ field }} {# Renders checkboxes #}
+        {% for address_form in address_formset %}
+            <div class="address-form mb-4 p-3 border rounded position-relative">
+                 {{ address_form.id }}
+                <div class="row g-3">
+                    {# Address Line 1 #}
+                    <div class="col-12">
+                      {{ address_form.address_line.label_tag }}
+                      {{ address_form.address_line }} {# Render the input field #}
+                      {% for error in address_form.address_line.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %} {# Show errors #}
+                 </div>
+                  {# Landmark #}
+                  <div class="col-md-6">
+                      {{ address_form.landmark.label_tag }}
+                      {{ address_form.landmark }}
+                      {% for error in address_form.landmark.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                 </div>
+                 {# Postal Code #}
+                 <div class="col-md-6">
+                      {{ address_form.postal_code.label_tag }}
+                      {{ address_form.postal_code }}
+                       {% for error in address_form.postal_code.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                 </div>
+                     
+
+                     {# --- ADD Location Tags rendering --- #}
+                     <div class="col-12">
+                         {% comment %} {{ address_form.location_tags.label_tag }} {% endcomment %}
+                         {# Use the CheckboxSelectMultiple widget automatically now #}
+                         <div class="d-flex justify-content-between align-items-center mb-1">
+                          <label class="form-label mb-0">{{ address_form.location_tags.label }}:</label>
+                          <button type="button" class="btn btn-outline-secondary btn-sm add-location-tag-btn" data-bs-toggle="modal" data-bs-target="#addLocationTagModal">
+                              <i class="fas fa-plus"></i> Add New Tag
+                          </button>
+                       </div>
+
+                       <div class="border p-2 rounded bg-light location-tags-container" style="max-height: 100px; overflow-y: auto;">
+                        {{ address_form.location_tags }}
+                       </div>
+
+                         {% for error in address_form.location_tags.errors %} 
+                          <div class="invalid-feedback d-block">{{ error }}</div> 
+                         {% endfor %}
                      </div>
-                  {% elif field.name == 'notes' %}
-                      {{ field }} {# Renders textarea (widget set in forms.py) #}
-                  {% else %}
-                     {{ field }} {# Render all other fields normally (text inputs, email) #}
-                  {% endif %}
-                  {# End conditional field rendering #}
+                     {# --- END Location Tags --- #}
 
-                  {# Render help text and errors ONCE per field #}
-                  {% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}
-                  {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-                </div>
-              {% endif %} {# End exclusion if #}
-            {% endfor %}
-            {# --- End Loop --- #}
+                     {# Is Primary & Delete #}
+                     <div class="col-12 d-flex align-items-center justify-content-between"> {# Changed to col-12 #}
+                        {# ... is_primary checkbox ... #}
+                        {# ... DELETE checkbox ... #}
+                     </div>
+                </div>{# End row #}
+             </div>{# End address-form wrapper #}
+        {% endfor %} {# End loop through address forms #}
+            </div> {# End Card Body #}
+        </div> {# End Card #}
+        {# --- END: Render Address Inline Formset --- #}
 
-            {# --- Buttons --- #}
-            <div class="mt-4">
-              <button type="submit" class="btn btn-success">
-                  {% if customer %}Update Customer{% else %}Save New Customer{% endif %}
-              </button>
-              <a href="{% if customer %}{% url 'customers:customer_detail' pk=customer.pk %}{% else %}{% url 'customers:customer_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
-            </div>
-            {# --- End Buttons --- #}
+
+        {# --- Submit Buttons --- #}
+        <div class="mt-4">
+          <button type="submit" class="btn btn-success">
+              {% if customer %}Update Customer{% else %}Save New Customer{% endif %}
+          </button>
+          <a href="{% if customer %}{% url 'customers:customer_detail' pk=customer.pk %}{% else %}{% url 'customers:customer_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+        </div>
+        {# --- End Buttons --- #}
 
           </form> {# End Form #}
         </div> {# End card-body #}
       </div> {# End card #}
     </div> {# End col #}
   </div> {# End row #}
-{% endblock %} {# End Content Block #}
+
+    {# --- ADD LOCATION TAG MODAL STRUCTURE --- #}
+    <div class="modal fade" id="addLocationTagModal" tabindex="-1" aria-labelledby="addLocationTagModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addLocationTagModalLabel">Add New Location Tag</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+                {# Simple form inside modal #}
+                <label for="new-location-tag-name" class="form-label">New Tag Name:</label>
+                <input type="text" id="new-location-tag-name" class="form-control mb-2">
+                <div id="location-tag-modal-error" class="text-danger small mt-1"></div> {# For errors #}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="save-new-location-tag-btn">Save Tag</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {# --- END LOCATION TAG MODAL STRUCTURE --- #}
+{% endblock %} {# End content block #}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Customer Form JS loaded.");
+
+    // --- Location Tag Modal Elements & Logic ---
+    const addLocationTagModalEl = document.getElementById('addLocationTagModal');
+    const newLocationTagNameInput = document.getElementById('new-location-tag-name');
+    const saveNewLocationTagBtn = document.getElementById('save-new-location-tag-btn');
+    const locationTagModalErrorDiv = document.getElementById('location-tag-modal-error');
+
+    let addLocationTagModalInstance = null;
+    if (addLocationTagModalEl) {
+        addLocationTagModalInstance = new bootstrap.Modal(addLocationTagModalEl);
+    }
+
+    // Note: The "Add New Tag" buttons are inside the formset, so we might have multiple.
+    // We handle opening the modal via data-bs-* attributes on the button itself.
+    // We only need the listener for the SAVE button inside the modal.
+
+    if (saveNewLocationTagBtn) {
+        saveNewLocationTagBtn.addEventListener('click', function() {
+            const newName = newLocationTagNameInput.value.trim();
+            locationTagModalErrorDiv.textContent = ''; // Clear errors
+            newLocationTagNameInput.classList.remove('is-invalid');
+
+            if (!newName) {
+                locationTagModalErrorDiv.textContent = 'Please enter a tag name.';
+                newLocationTagNameInput.classList.add('is-invalid');
+                return;
+            }
+
+            // Prepare data and get CSRF token
+            const formData = new FormData();
+            formData.append('name', newName);
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+            if (!csrfToken) { /* Handle missing CSRF */ return; }
+            formData.append('csrfmiddlewaretoken', csrfToken);
+
+            // Send data to API
+            fetch("{% url 'customers:api_location_tag_add' %}", { // Use correct URL name
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addLocationTagModalInstance.hide(); // Close modal
+
+                    // --- Dynamically Add New Tag Checkbox ---
+                    // Find ALL location tag containers (one per address form)
+                    const tagContainers = document.querySelectorAll('.location-tags-container');
+                    tagContainers.forEach(container => {
+                        // Create the new checkbox and label elements
+                        const newDiv = document.createElement('div');
+                        newDiv.classList.add('form-check', 'form-check-inline'); // Inline styling
+
+                        const newCheckbox = document.createElement('input');
+                        newCheckbox.type = 'checkbox';
+                        newCheckbox.classList.add('form-check-input');
+                        newCheckbox.name = container.querySelector('input[type=checkbox]')?.name || 'location_tags'; // Use name from existing checkbox in this formset form
+                        newCheckbox.value = data.tag_id;
+                        newCheckbox.id = `id_${newCheckbox.name}_${container.querySelectorAll('input').length}`; // Create a unique-ish ID
+                        newCheckbox.checked = true; // Check the new tag by default
+
+                        const newLabel = document.createElement('label');
+                        newLabel.classList.add('form-check-label');
+                        newLabel.htmlFor = newCheckbox.id;
+                        newLabel.textContent = data.tag_name;
+
+                        newDiv.appendChild(newCheckbox);
+                        newDiv.appendChild(newLabel);
+                        container.appendChild(newDiv); // Add to the container
+                    });
+                    // --- End Dynamic Add ---
+
+                } else {
+                    locationTagModalErrorDiv.textContent = data.error || 'An unknown error occurred.';
+                    newLocationTagNameInput.classList.add('is-invalid');
+                }
+            })
+            .catch(error => {
+                console.error("Error saving location tag:", error);
+                locationTagModalErrorDiv.textContent = 'An unexpected error occurred.';
+            });
+        });
+    }
+
+}); // End DOMContentLoaded
+</script>
+{% endblock %}

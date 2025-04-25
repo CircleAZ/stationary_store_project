@@ -48,39 +48,21 @@
                 <h5>Address</h5>
                 <dl class="row mb-4">
                     {% with primary_addr=customer.primary_address %}
-                       {% if primary_addr %}
-                         {# Removed explicit <dt> Primary Address </dt> to avoid repetition #}
-                         <dt class="col-sm-3">Address:</dt>
-                         <dd class="col-sm-9">{{ primary_addr.address_line }}</dd>
-
-                         {% if primary_addr.landmark %}
-                             <dt class="col-sm-3">Landmark:</dt>
-                             <dd class="col-sm-9">{{ primary_addr.landmark }}</dd>
-                         {% endif %}
-                          {% if primary_addr.city or primary_addr.state %}
-                             <dt class="col-sm-3">Location:</dt> {# Combined City/State #}
-                             <dd class="col-sm-9">{% if primary_addr.city %}{{ primary_addr.city }}{% endif %}{% if primary_addr.city and primary_addr.state %}, {% endif %}{% if primary_addr.state %}{{ primary_addr.state }}{% endif %}</dd>
-                         {% endif %}
-                         {% if primary_addr.postal_code %}
-                             <dt class="col-sm-3">Postal Code:</dt>
-                             <dd class="col-sm-9">{{ primary_addr.postal_code }}</dd>
-                         {% endif %}
-                         {% if primary_addr.country %}
-                            <dt class="col-sm-3">Country:</dt>
-                            <dd class="col-sm-9">{{ primary_addr.country }}</dd>
-                         {% endif %}
-                       {% else %}
-                          <dd class="col-sm-12"><em class="text-muted">No primary address set.</em></dd>
-                       {% endif %}
-                     {% endwith %}
-
-                     {% if customer.location_tags.all %}
-                         <li><strong>Location Tags:</strong>
-                             {% for tag in customer.location_tags.all %}
-                               <span class="badge bg-info text-dark">{{ tag.name }}</span> {# Different color #}
-                             {% endfor %}
-                         </li>
-                         {% endif %}
+           {% if primary_addr %}
+             <dt class="col-sm-3">Address:</dt> <dd class="col-sm-9">{{ primary_addr.address_line }}</dd>
+             {% if primary_addr.landmark %} <dt class="col-sm-3">Landmark:</dt> <dd class="col-sm-9">{{ primary_addr.landmark }}</dd> {% endif %}
+             {% if primary_addr.postal_code %} <dt class="col-sm-3">Postal Code:</dt> <dd class="col-sm-9">{{ primary_addr.postal_code }}</dd> {% endif %}
+             {# --- REMOVE City, State, Country --- #}
+             {# --- ADD Location Tags display --- #}
+             {% if primary_addr.location_tags.all %}
+                 <dt class="col-sm-3">Location Tags:</dt>
+                 <dd class="col-sm-9"> {% for tag in primary_addr.location_tags.all %}<span class="badge bg-info text-dark me-1">{{ tag.name }}</span>{% endfor %} </dd>
+             {% endif %}
+             {# --- END Location Tags --- #}
+           {% else %}
+              <dd class="col-sm-12"><em class="text-muted">No primary address set.</em></dd>
+           {% endif %}
+         {% endwith %}
                      {# Optional: Add loop here to display other non-primary addresses if needed #}
                      {# {% for addr in customer.addresses.all %}{% if not addr.is_primary %} ... {% endif %}{% endfor %} #}
                 </dl>

@@ -2,30 +2,28 @@
 from django import forms
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from .models import Customer, Address
+from .models import Customer, Address, LocationTag
 from .forms import CustomerForm
 from django.template.loader import render_to_string # Import render_to_string
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse # Import response types
+from django.http import JsonResponse # Import response types
 from django.contrib.auth.decorators import login_required # Keep using login_required
-from orders.models import Order
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.forms import inlineformset_factory
 from django.db import transaction
+from django.views.decorators.http import require_POST
 
 
 AddressFormSet = inlineformset_factory(
     Customer,       # Parent model
     Address,        # Inline model
-    fields=('address_line', 'landmark', 'city', 'state', 'postal_code', 'country', 'is_primary'), # Fields on Address form
+    fields=('address_line', 'landmark', 'postal_code', 'location_tags', 'is_primary'),
     extra=1,        # How many extra blank forms to display
     can_delete=True, # Allow deleting existing addresses via the formset
     widgets={       # Optional: Apply widgets/styling
         'address_line': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
         'landmark': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
         'postal_code': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
-        'city': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
-        'state': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
-        'country': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
+        'location_tags': forms.CheckboxSelectMultiple(attrs={'class':'form-check-inline small'}),
         'is_primary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
     }
 )
@@ -230,3 +228,29 @@ def customer_detail_view(request, pk): # Assuming no @login_required needed for 
         'page_title': f"Customer: {customer.full_name}"
     }
     return render(request, 'customers/customer_detail.html', context)
+
+@login_required # Or appropriate permission
+@require_POST
+def location_tag_add_modal_api(request):
+    """ Handles POST submission from the Add Location Tag modal. """
+    tag_name = request.POST.get('name', '').strip()
+    error_message = None
+
+    if not tag_name:
+        error_message = "Tag name cannot be empty."
+    # Check if tag already exists (case-insensitive)
+    elif LocationTag.objects.filter(name__iexact=tag_name).exists():
+        error_message = f"Location Tag '{tag_name}' already exists."
+
+    if error_message:
+        return JsonResponse({'success': False, 'error': error_message}, status=400)
+    else:
+        try:
+            new_tag = LocationTag.objects.create(name=tag_name)
+            return JsonResponse({
+                'success': True,
+                'tag_id': new_tag.pk,
+                'tag_name': new_tag.name
+            })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Error saving tag: {str(e)}'}, status=500)
