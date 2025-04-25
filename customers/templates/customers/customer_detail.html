@@ -73,6 +73,14 @@
                           <dd class="col-sm-12"><em class="text-muted">No primary address set.</em></dd>
                        {% endif %}
                      {% endwith %}
+
+                     {% if customer.location_tags.all %}
+                         <li><strong>Location Tags:</strong>
+                             {% for tag in customer.location_tags.all %}
+                               <span class="badge bg-info text-dark">{{ tag.name }}</span> {# Different color #}
+                             {% endfor %}
+                         </li>
+                         {% endif %}
                      {# Optional: Add loop here to display other non-primary addresses if needed #}
                      {# {% for addr in customer.addresses.all %}{% if not addr.is_primary %} ... {% endif %}{% endfor %} #}
                 </dl>

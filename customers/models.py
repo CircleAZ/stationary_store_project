@@ -48,6 +48,15 @@ class Address(models.Model):
 
     # Optional: Add validation to ensure only one primary address per customer later
 
+class LocationTag(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    # Add description or color later if needed
+
+    class Meta:
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name
 
 class Customer(models.Model):
     # Basic Info
@@ -85,6 +94,13 @@ class Customer(models.Model):
 
     # Other Info
     notes = models.TextField(blank=True, null=True) # General notes/preferences
+
+    location_tags = models.ManyToManyField(
+        LocationTag,
+        blank=True,
+        related_name="customers",
+        help_text="Tags describing the customer's location (e.g., Near School Gate, Block A)"
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

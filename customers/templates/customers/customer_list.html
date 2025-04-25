@@ -22,10 +22,12 @@
             <th scope="col">Name</th>
             <th scope="col">Email</th>
             <th scope="col">Phone</th>
-            <th scope="col">Primary Address</th>
             <th scope="col">Class</th>
+            <th scope="col">Primary Address</th>
+            <th scope="col">Locatio Tags</th>
             <th scope="col">Groups</th>
             <th scope="col">Actions</th> {# Column for Edit/View Details buttons #}
+            
           </tr>
         </thead>
         <tbody>
@@ -57,6 +59,13 @@
                     <a href="{% url 'customers:customer_edit' pk=customer.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
                     {# --- END UPDATE --- #}
                 </td>
+                <td>
+                {% for tag in customer.location_tags.all %}
+                   <span class="badge bg-info text-dark me-1">{{ tag.name }}</span>
+                {% empty %}
+                   <span class="text-muted small">-</span>
+                {% endfor %}
+            </td>
               </tr>
             {% endfor %}
           </tbody>
