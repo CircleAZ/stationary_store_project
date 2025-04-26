@@ -1,5 +1,6 @@
 from django.db import models
 from django.urls import reverse # For get_absolute_url later
+from decimal import Decimal
 
 # Create your models here.
 
@@ -45,6 +46,21 @@ class Address(models.Model):
         blank=True,
         related_name="addresses", # Can keep this related_name
         help_text="Tags describing this specific address location."
+    )
+
+    latitude = models.DecimalField(
+        max_digits=10, # Increased precision for lat/lon
+        decimal_places=7, # 7 decimal places provide good accuracy
+        null=True,
+        blank=True,
+        verbose_name="Latitude"
+    )
+    longitude = models.DecimalField(
+        max_digits=10, # Needs to accommodate up to +/- 180
+        decimal_places=7,
+        null=True,
+        blank=True,
+        verbose_name="Longitude"
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

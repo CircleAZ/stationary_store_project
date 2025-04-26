@@ -60,6 +60,8 @@
         {% for address_form in address_formset %}
             <div class="address-form mb-4 p-3 border rounded position-relative">
                  {{ address_form.id }}
+                 {{ address_form.latitude }}
+                 {{ address_form.longitude }}
                 <div class="row g-3">
                     {# Address Line 1 #}
                     <div class="col-12">
@@ -80,26 +82,32 @@
                        {% for error in address_form.postal_code.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
                  </div>
                      
+                 <div class="col-12">
+                  <label class="form-label">Pin Location on Map:</label>
+                  {# Unique ID needed for each map instance in the formset #}
+                  <div id="map-{{ address_form.prefix }}" class="leaflet-map-container border rounded"></div>
+                  <small class="form-text text-muted">Click on the map to set Latitude/Longitude.</small>
+                 </div>
 
                      {# --- ADD Location Tags rendering --- #}
-                     <div class="col-12">
-                         {% comment %} {{ address_form.location_tags.label_tag }} {% endcomment %}
-                         {# Use the CheckboxSelectMultiple widget automatically now #}
-                         <div class="d-flex justify-content-between align-items-center mb-1">
-                          <label class="form-label mb-0">{{ address_form.location_tags.label }}:</label>
-                          <button type="button" class="btn btn-outline-secondary btn-sm add-location-tag-btn" data-bs-toggle="modal" data-bs-target="#addLocationTagModal">
-                              <i class="fas fa-plus"></i> Add New Tag
-                          </button>
-                       </div>
+                 <div class="col-12">
+                     {% comment %} {{ address_form.location_tags.label_tag }} {% endcomment %}
+                     {# Use the CheckboxSelectMultiple widget automatically now #}
+                     <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label class="form-label mb-0">{{ address_form.location_tags.label }}:</label>
+                      <button type="button" class="btn btn-outline-secondary btn-sm add-location-tag-btn" data-bs-toggle="modal" data-bs-target="#addLocationTagModal">
+                          <i class="fas fa-plus"></i> Add New Tag
+                      </button>
+                 </div>
 
-                       <div class="border p-2 rounded bg-light location-tags-container" style="max-height: 100px; overflow-y: auto;">
-                        {{ address_form.location_tags }}
-                       </div>
+                 <div class="border p-2 rounded bg-light location-tags-container" style="max-height: 100px; overflow-y: auto;">
+                  {{ address_form.location_tags }}
+                 </div>
 
-                         {% for error in address_form.location_tags.errors %} 
-                          <div class="invalid-feedback d-block">{{ error }}</div> 
-                         {% endfor %}
-                     </div>
+                   {% for error in address_form.location_tags.errors %} 
+                    <div class="invalid-feedback d-block">{{ error }}</div> 
+                   {% endfor %}
+            </div>
                      {# --- END Location Tags --- #}
 
                      {# Is Primary & Delete #}
@@ -155,6 +163,7 @@
 {% endblock %} {# End content block #}
 
 {% block extra_js %}
+{{ block.super }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log("Customer Form JS loaded.");
@@ -241,7 +250,142 @@ document.addEventListener('DOMContentLoaded', function() {
                 locationTagModalErrorDiv.textContent = 'An unexpected error occurred.';
             });
         });
+}
+
+console.log("Initializing maps...");
+const addressForms = document.querySelectorAll('.address-form');
+
+addressForms.forEach((formWrapper, index) => { // Added index for default prefixing
+    // Determine prefix (ensure robust finding)
+     //let prefix = formWrapper.querySelector('input[id$="-id"]')?.id.replace('-id', '');
+  
+  
+     let prefix = null;
+     // Try finding the hidden ID input first (most reliable for existing forms)
+     const idInput = formWrapper.querySelector('input[type="hidden"][name$="-id"]');
+     if (idInput && idInput.name) {
+         // Extract prefix from name like 'addresses-0-id' -> 'addresses-0'
+         prefix = idInput.name.substring(0, idInput.name.lastIndexOf('-'));
+     } else {
+         // Fallback for NEW forms (extra forms added by formset)
+         // These often don't have the -id input rendered initially
+         // Check if it's a new form by looking for inputs without a value in the 'id' field if rendered
+         // Or rely on the management form's prefix + index (less direct)
+         // Let's try finding any input name and extracting the prefix pattern
+         const anyInput = formWrapper.querySelector('input, select, textarea');
+         if (anyInput && anyInput.name) {
+              const match = anyInput.name.match(/^([a-zA-Z0-9\-_]+)-\d+-/); // Match prefix-number-
+              if (match) {
+                  prefix = anyInput.name.substring(0, anyInput.name.lastIndexOf('-')); // e.g., addresses-1
+              }
+         }
+     }
+  
+  
+{% comment %}   
+     // Fallback if ID hidden field not found (e.g., new forms) - relies on Django's default prefixing
+     if (!prefix && document.querySelector('input[name="addresses-TOTAL_FORMS"]')) {
+         // Find the input that holds the index for this specific form
+         const indexInput = formWrapper.querySelector(`input[name$="-id"]`); // Check again or other identifying field
+         if (indexInput) {
+            // Try extracting from name attribute if ID fails e.g., name="addresses-0-id"
+            const nameMatch = indexInput.name.match(/addresses-(\d+)-id/);
+            if (nameMatch) prefix = `addresses-${nameMatch[1]}`;
+         }
+         // If still no prefix found for a new form, default (might conflict if multiple new)
+          if (!prefix) prefix = `addresses-${index}`; // Less reliable fallback based on loop order
+     } 
+     {% endcomment %}
+
+
+
+
+     {% comment %} if (!prefix) {
+         console.error("Could not determine formset prefix for map initialization on form:", formWrapper);
+         return; // Skip this form if prefix is missing
+     } {% endcomment %}
+
+
+     if (!prefix) {
+      // Attempt to find prefix from management form input - less robust
+      const totalFormsInput = document.querySelector('input[name="addresses-TOTAL_FORMS"]');
+      if (totalFormsInput) {
+         // This won't give the specific index, just the base prefix 'addresses'
+         // prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
+         // Cannot reliably get index this way without more complex DOM traversal
+         console.error("Could not reliably determine formset prefix for map initialization on form:", formWrapper);
+          return; // Skip this form
+      } else {
+           console.error("Cannot find TOTAL_FORMS input or determine prefix.");
+           return;
+      }
+ }
+
+
+
+    const mapId = `map-${prefix}`;
+    const mapElement = formWrapper.querySelector(`#${mapId}`);
+    // Target hidden inputs using name attribute with prefix
+    const latInput = formWrapper.querySelector(`input[name="${prefix}-latitude"]`);
+    const lonInput = formWrapper.querySelector(`input[name="${prefix}-longitude"]`);
+
+    if (!mapElement || !latInput || !lonInput) {
+        console.error(`Missing map elements for prefix ${prefix}. MapElement: ${!!mapElement}, LatInput: ${!!latInput}, LonInput: ${!!lonInput}`);
+        return;
     }
+    console.log(`Initializing map for prefix: ${prefix}`);
+
+    let initialLat = latInput.value ? parseFloat(latInput.value) : 20.5937;
+    let initialLon = lonInput.value ? parseFloat(lonInput.value) : 78.9629;
+    let initialZoom = latInput.value ? 15 : 5;
+
+    const map = L.map(mapId).setView([initialLat, initialLon], initialZoom);
+
+    // --- Tile Layers & Control (Keep this as before) ---
+    const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { // <-- OSM URL
+      maxZoom: 19,
+      attribution: '© <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  });
+  const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { // <-- Esri URL
+    maxZoom: 19,
+    attribution: 'Tiles © Esri — ...' // Shortened attribution
+});
+    esriSatellite.addTo(map);
+    L.control.layers({"Satellite": esriSatellite, "Street Map": osmTile}).addTo(map);
+    // --- End Tile Layers ---
+
+    let marker = L.marker([initialLat, initialLon], { draggable: true }).addTo(map);
+
+    marker.on('dragend', function(e) {
+        const latlng = e.target.getLatLng();
+        latInput.value = latlng.lat.toFixed(7);
+        lonInput.value = latlng.lng.toFixed(7);
+        console.log(`Marker dragged for ${prefix}:`, latInput.value, lonInput.value);
+    });
+
+    map.on('click', function(e) {
+        const latlng = e.latlng;
+        marker.setLatLng(latlng);
+        latInput.value = latlng.lat.toFixed(7);
+        lonInput.value = latlng.lng.toFixed(7);
+        console.log(`Map clicked for ${prefix}:`, latInput.value, lonInput.value);
+    });
+
+    latInput.addEventListener('change', updateMapFromInputs);
+    lonInput.addEventListener('change', updateMapFromInputs);
+
+    function updateMapFromInputs() {
+        const lat = parseFloat(latInput.value);
+        const lon = parseFloat(lonInput.value);
+        if (!isNaN(lat) && !isNaN(lon)) {
+            const newLatLng = L.latLng(lat, lon);
+            marker.setLatLng(newLatLng);
+            map.panTo(newLatLng);
+        }
+    }
+}); // End forEach addressForm
+// --- END Map Integration Logic ---
+
 
 }); // End DOMContentLoaded
 </script>

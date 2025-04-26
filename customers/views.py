@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 AddressFormSet = inlineformset_factory(
     Customer,       # Parent model
     Address,        # Inline model
-    fields=('address_line', 'landmark', 'postal_code', 'location_tags', 'is_primary'),
+    fields=('address_line', 'landmark', 'postal_code', 'location_tags', 'latitude', 'longitude', 'is_primary'),
     extra=1,        # How many extra blank forms to display
     can_delete=True, # Allow deleting existing addresses via the formset
     widgets={       # Optional: Apply widgets/styling
@@ -25,6 +25,9 @@ AddressFormSet = inlineformset_factory(
         'postal_code': forms.TextInput(attrs={'class': 'form-control form-control-sm'}),
         'location_tags': forms.CheckboxSelectMultiple(attrs={'class':'form-check-inline small'}),
         'is_primary': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        'latitude': forms.HiddenInput(attrs={'step': 'any'}), # Use HiddenInput
+        'longitude': forms.HiddenInput(attrs={'step': 'any'}),
+   
     }
 )
 
